@@ -35,6 +35,7 @@ services:
       - NOTIFICATION_HOUR=${NOTIFICATION_HOUR:-8}
       - NOTIFICATION_MINUTE=${NOTIFICATION_MINUTE:-0}
       - SECRET_KEY=${SECRET_KEY}
+      - SECURE_COOKIES=true
 
     # Health check
     healthcheck:

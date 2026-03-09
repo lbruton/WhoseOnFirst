@@ -4,7 +4,9 @@ Authentication API Routes
 Handles user login, logout, and session management.
 """
 
+import base64
 import json
+import os
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -30,6 +32,29 @@ from src.repositories.user_repository import UserRepository
 
 router = APIRouter()
 
+# Detect HTTPS mode: behind Cloudflare tunnel or explicit HTTPS config
+_USE_SECURE_COOKIES = os.getenv("SECURE_COOKIES", "").lower() in ("1", "true", "yes")
+
+
+def _encode_session(data: dict) -> str:
+    """Base64-encode session data for safe cookie storage."""
+    return base64.urlsafe_b64encode(json.dumps(data).encode()).decode()
+
+
+def _decode_session(value: str) -> dict:
+    """Decode session data from cookie, supporting both base64 and legacy JSON."""
+    # Try base64 first (new format)
+    try:
+        decoded = base64.urlsafe_b64decode(value.encode()).decode()
+        return json.loads(decoded)
+    except Exception:
+        pass
+    # Fall back to raw JSON (legacy format, for in-flight sessions)
+    try:
+        return json.loads(value)
+    except Exception:
+        return {}
+
 
 def get_session_user_id(session: Optional[str] = Cookie(default=None)) -> Optional[int]:
     """
@@ -44,11 +69,8 @@ def get_session_user_id(session: Optional[str] = Cookie(default=None)) -> Option
     if not session:
         return None
 
-    try:
-        session_data = json.loads(session)
-        return session_data.get("user_id")
-    except (json.JSONDecodeError, KeyError):
-        return None
+    session_data = _decode_session(session)
+    return session_data.get("user_id")
 
 
 def require_auth(
@@ -133,15 +155,15 @@ async def login(
     # Create session data
     session_data = create_session_cookie(user.id, credentials.remember_me)
 
-    # Set session cookie
+    # Set session cookie with base64-encoded value (avoids special char issues in cookies)
     max_age = 2592000 if credentials.remember_me else 86400  # 30 days or 24 hours
     response.set_cookie(
         key="session",
-        value=json.dumps(session_data),
+        value=_encode_session(session_data),
         max_age=max_age,
         httponly=True,
-        samesite="lax",  # Safe for same-origin (frontend and backend both on port 8000)
-        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        secure=_USE_SECURE_COOKIES,
         path="/"
     )
 
@@ -162,7 +184,13 @@ async def logout(response: Response):
     Returns:
         Logout confirmation
     """
-    response.delete_cookie(key="session")
+    response.delete_cookie(
+        key="session",
+        path="/",
+        httponly=True,
+        samesite="lax",
+        secure=_USE_SECURE_COOKIES,
+    )
     return {"message": "Logged out successfully"}
 
 
