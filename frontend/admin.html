@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - WhoseOnFirst</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/css/tabler.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet">
+
+    <script src="/js/sidebar-loader.js" defer></script>
+
+    <style>
+        .logo-svg { width: 32px; height: 32px; }
+
+        .import-drop-zone {
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.2s, background 0.2s;
+            cursor: pointer;
+        }
+        .import-drop-zone.dragover {
+            border-color: #206bc4;
+            background: rgba(32, 107, 196, 0.05);
+        }
+        .import-drop-zone .ti { font-size: 2rem; }
+    </style>
+</head>
+<body data-page="admin">
+    <div class="page">
+        <div id="sidebar-container"></div>
+
+        <div class="page-wrapper">
+            <div class="page-header">
+                <div class="container-xl">
+                    <div class="row g-2 align-items-center">
+                        <div class="col">
+                            <div class="page-pretitle">System</div>
+                            <h2 class="page-title">Admin</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="page-body">
+                <div class="container-xl">
+
+                    <!-- Alert area -->
+                    <div id="alertArea" class="mb-3" style="display:none;"></div>
+
+                    <div class="row row-cards">
+
+                        <!-- Export Card -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="ti ti-download me-2 text-primary"></i>
+                                        Export Backup
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted">
+                                        Download a full backup of your data as a <code>.stvault</code> file.
+                                        Includes team members, shifts, schedule, and settings.
+                                    </p>
+                                    <ul class="text-muted small mb-3">
+                                        <li>Team members &amp; phone numbers</li>
+                                        <li>Shift configuration</li>
+                                        <li>Full schedule history</li>
+                                        <li>Application settings</li>
+                                    </ul>
+                                    <p class="text-muted small">
+                                        <i class="ti ti-lock me-1"></i>
+                                        User accounts are excluded for security.
+                                    </p>
+                                </div>
+                                <div class="card-footer">
+                                    <button id="exportBtn" class="btn btn-primary w-100">
+                                        <i class="ti ti-download me-2"></i>
+                                        Download Backup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Import Card -->
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="ti ti-upload me-2 text-warning"></i>
+                                        Restore from Backup
+                                    </h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-warning">
+                                        <div class="d-flex">
+                                            <div><i class="ti ti-alert-triangle me-2"></i></div>
+                                            <div>
+                                                <strong>This will overwrite all existing data.</strong>
+                                                The restore is atomic — if anything fails, no data is changed.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="import-drop-zone" id="dropZone">
+                                        <i class="ti ti-file-upload text-muted d-block mb-2"></i>
+                                        <p class="text-muted mb-1">Drop a <code>.stvault</code> file here</p>
+                                        <p class="text-muted small mb-3">or</p>
+                                        <label class="btn btn-sm btn-outline-secondary">
+                                            Choose File
+                                            <input type="file" id="importFile" accept=".stvault,.json" style="display:none;">
+                                        </label>
+                                        <p id="selectedFileName" class="text-muted small mt-2" style="display:none;"></p>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <button id="importBtn" class="btn btn-warning w-100" disabled>
+                                        <i class="ti ti-upload me-2"></i>
+                                        Restore from Backup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /row -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Restore Modal -->
+    <div class="modal modal-blur fade" id="confirmRestoreModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-body">
+                    <div class="modal-title">Confirm Restore</div>
+                    <div class="mt-2 text-muted">
+                        This will <strong>permanently overwrite</strong> all team members, shifts,
+                        schedule, and settings with the contents of your backup file.
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-warning-lt" id="confirmFileName"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary me-auto" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-warning" id="confirmRestoreBtn">
+                        <i class="ti ti-upload me-1"></i>
+                        Yes, Restore
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/js/tabler.min.js"></script>
+    <script>
+        // ----------------------------------------------------------------
+        // Helpers
+        // ----------------------------------------------------------------
+        function showAlert(type, message) {
+            const area = document.getElementById('alertArea');
+            area.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+            area.style.display = '';
+        }
+
+        function setLoading(btn, loading, defaultHtml) {
+            btn.disabled = loading;
+            btn.innerHTML = loading
+                ? '<span class="spinner-border spinner-border-sm me-2"></span>Please wait…'
+                : defaultHtml;
+        }
+
+        // ----------------------------------------------------------------
+        // Export
+        // ----------------------------------------------------------------
+        document.getElementById('exportBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('exportBtn');
+            setLoading(btn, true, '<i class="ti ti-download me-2"></i>Download Backup');
+
+            try {
+                const resp = await fetch('/api/v1/admin/export', { credentials: 'include' });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({ detail: 'Export failed' }));
+                    throw new Error(err.detail || 'Export failed');
+                }
+
+                // Trigger browser download
+                const blob = await resp.blob();
+                const cd = resp.headers.get('Content-Disposition') || '';
+                const match = cd.match(/filename="([^"]+)"/);
+                const filename = match ? match[1] : 'whoseonfirst.stvault';
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+                showAlert('success', `<i class="ti ti-check me-1"></i>Backup downloaded: <strong>${filename}</strong>`);
+            } catch (err) {
+                showAlert('danger', `<i class="ti ti-alert-circle me-1"></i>${err.message}`);
+            } finally {
+                setLoading(btn, false, '<i class="ti ti-download me-2"></i>Download Backup');
+            }
+        });
+
+        // ----------------------------------------------------------------
+        // Import — file selection
+        // ----------------------------------------------------------------
+        let selectedFile = null;
+
+        function handleFileSelected(file) {
+            selectedFile = file;
+            document.getElementById('selectedFileName').textContent = file.name;
+            document.getElementById('selectedFileName').style.display = '';
+            document.getElementById('importBtn').disabled = false;
+        }
+
+        document.getElementById('importFile').addEventListener('change', (e) => {
+            if (e.target.files[0]) handleFileSelected(e.target.files[0]);
+        });
+
+        // Drag & drop
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileSelected(file);
+        });
+
+        // ----------------------------------------------------------------
+        // Import — confirmation modal
+        // ----------------------------------------------------------------
+        document.getElementById('importBtn').addEventListener('click', () => {
+            if (!selectedFile) return;
+            document.getElementById('confirmFileName').textContent = selectedFile.name;
+            const modal = new bootstrap.Modal(document.getElementById('confirmRestoreModal'));
+            modal.show();
+        });
+
+        document.getElementById('confirmRestoreBtn').addEventListener('click', async () => {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmRestoreModal'));
+            modal.hide();
+
+            const btn = document.getElementById('importBtn');
+            setLoading(btn, true, '<i class="ti ti-upload me-2"></i>Restore from Backup');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+
+                const resp = await fetch('/api/v1/admin/import', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData,
+                });
+
+                const result = await resp.json().catch(() => ({ detail: 'Unknown error' }));
+                if (!resp.ok) throw new Error(result.detail || 'Import failed');
+
+                const counts = result.imported;
+                showAlert('success',
+                    `<i class="ti ti-check me-1"></i>
+                    <strong>Restore complete!</strong> Imported:
+                    ${counts.team_members} team members,
+                    ${counts.shifts} shifts,
+                    ${counts.schedule} schedule entries,
+                    ${counts.settings} settings.`
+                );
+                // Reset file picker
+                selectedFile = null;
+                document.getElementById('importFile').value = '';
+                document.getElementById('selectedFileName').style.display = 'none';
+                btn.disabled = true;
+            } catch (err) {
+                showAlert('danger', `<i class="ti ti-alert-circle me-1"></i>${err.message}`);
+            } finally {
+                setLoading(btn, false, '<i class="ti ti-upload me-2"></i>Restore from Backup');
+            }
+        });
+    </script>
+</body>
+</html>
