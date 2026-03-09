@@ -1,8 +1,9 @@
 # ============================================
-# WhoseOnFirst - Docker Compose Configuration
+# WhoseOnFirst - Production (Portainer GitOps)
 # ============================================
-# Easy deployment with docker-compose or podman-compose
-# Version: 1.0.0
+# Deployed via Portainer stack from GitHub repo.
+# GitOps redeploy rebuilds the image but preserves
+# the named volume — your database survives redeploys.
 # ============================================
 
 services:
@@ -10,36 +11,30 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: whoseonfirst:1.0.0
     container_name: whoseonfirst
     restart: unless-stopped
 
-    # Port mapping
+    # Port mapping — Cloudflare tunnel expects 8900
     ports:
-      - "8000:8000"
+      - "8900:8000"
 
-    # Volume for persistent database
+    # Named volume — persists across GitOps redeploys
     volumes:
-      - ./data:/app/data
+      - whoseonfirst-data:/app/data
 
-    # Environment variables
-    # IMPORTANT: Create a .env file with your Twilio credentials
-    # See .env.example for template
+    # Environment variables injected via Portainer stack config
     environment:
       - DATABASE_URL=sqlite:///./data/whoseonfirst.db
       - HOST=0.0.0.0
       - PORT=8000
       - LOG_LEVEL=INFO
-      # Twilio configuration (from .env file)
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
-      # SMS notification schedule
       - NOTIFICATION_TIMEZONE=${NOTIFICATION_TIMEZONE:-America/Chicago}
       - NOTIFICATION_HOUR=${NOTIFICATION_HOUR:-8}
       - NOTIFICATION_MINUTE=${NOTIFICATION_MINUTE:-0}
-      # Security
-      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - SECRET_KEY=${SECRET_KEY}
 
     # Health check
     healthcheck:
@@ -56,7 +51,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-# Volume definition (optional, for named volumes)
+# Named volume — survives container rebuilds and GitOps redeploys
 volumes:
   whoseonfirst-data:
     driver: local
