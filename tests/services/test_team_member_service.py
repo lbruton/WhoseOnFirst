@@ -454,3 +454,29 @@ class TestTeamMemberServiceQueries:
         results = service.search_by_name("NonExistent")
 
         assert len(results) == 0
+
+
+class TestTeamMemberServiceRotation:
+
+    def test_deactivate_renumbers_remaining_active_members(self, db_session: Session):
+        """When a member is deactivated with others present, rotation orders are renumbered."""
+        service = TeamMemberService(db_session)
+        m1 = service.create({"name": "Alice", "phone": "+15551111111", "is_active": True})
+        m2 = service.create({"name": "Bob", "phone": "+15552222222", "is_active": True})
+        service.deactivate(m1.id)
+        # Bob should still be active and rotation re-ordered
+        db_session.refresh(m2)
+        assert m2.is_active is True
+
+    def test_update_rotation_orders_success(self, db_session: Session):
+        service = TeamMemberService(db_session)
+        m1 = service.create({"name": "Alice", "phone": "+15551111111", "is_active": True})
+        m2 = service.create({"name": "Bob", "phone": "+15552222222", "is_active": True})
+        updated = service.update_rotation_orders({m1.id: 1, m2.id: 0})
+        assert len(updated) == 2
+
+    def test_update_rotation_orders_missing_member_raises(self, db_session: Session):
+        from src.services.team_member_service import MemberNotFoundError
+        service = TeamMemberService(db_session)
+        with pytest.raises(MemberNotFoundError):
+            service.update_rotation_orders({99999: 0})

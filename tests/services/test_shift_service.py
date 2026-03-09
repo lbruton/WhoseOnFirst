@@ -519,3 +519,45 @@ class TestShiftServiceQueries:
         count = service.get_count()
 
         assert count == 0
+
+
+class TestShiftServiceExtraPaths:
+
+    def test_get_all_unordered(self, db_session: Session, sample_shift_data):
+        """get_all(ordered=False) uses repository.get_all() path."""
+        service = ShiftService(db_session)
+        service.create(sample_shift_data)
+        result = service.get_all(ordered=False)
+        assert len(result) == 1
+
+    def test_create_invalid_start_time_non_string(self, db_session: Session, sample_shift_data):
+        """Non-string start_time raises InvalidShiftDataError."""
+        from src.services.shift_service import InvalidShiftDataError
+        service = ShiftService(db_session)
+        sample_shift_data["start_time"] = 800
+        with pytest.raises(InvalidShiftDataError, match="must be a string"):
+            service.create(sample_shift_data)
+
+    def test_create_invalid_start_time_bad_values(self, db_session: Session, sample_shift_data):
+        """Out-of-range start_time raises InvalidShiftDataError."""
+        from src.services.shift_service import InvalidShiftDataError
+        service = ShiftService(db_session)
+        sample_shift_data["start_time"] = "25:99:00"
+        with pytest.raises(InvalidShiftDataError):
+            service.create(sample_shift_data)
+
+    def test_create_invalid_start_time_non_integer_parts(self, db_session: Session, sample_shift_data):
+        """Non-integer start_time parts raise InvalidShiftDataError."""
+        from src.services.shift_service import InvalidShiftDataError
+        service = ShiftService(db_session)
+        sample_shift_data["start_time"] = "ab:cd:ef"
+        with pytest.raises(InvalidShiftDataError):
+            service.create(sample_shift_data)
+
+    def test_create_invalid_start_time_wrong_segment_count(self, db_session: Session, sample_shift_data):
+        """start_time without HH:MM:SS format (wrong segment count) raises InvalidShiftDataError."""
+        from src.services.shift_service import InvalidShiftDataError
+        service = ShiftService(db_session)
+        sample_shift_data["start_time"] = "0800"
+        with pytest.raises(InvalidShiftDataError, match="HH:MM:SS format"):
+            service.create(sample_shift_data)

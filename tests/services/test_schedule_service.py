@@ -629,3 +629,21 @@ class TestScheduleServiceIntegration:
 
         # Verify rotation still works correctly
         assert len(regenerated) == 12  # Still 6 shifts * 2 weeks
+
+
+class TestScheduleServicePendingWithTargetDate:
+
+    def test_get_pending_with_datetime_target_date(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Passing a datetime as target_date triggers the date() conversion on line 313."""
+        service = ScheduleService(db_session)
+        yesterday = datetime.now(chicago_tz) - timedelta(days=1)
+        monday = yesterday - timedelta(days=yesterday.weekday())
+        monday = monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        service.generate_schedule(monday, weeks=2)
+
+        # Pass a datetime object — service must convert it to .date()
+        target = datetime.now(chicago_tz)
+        pending = service.get_pending_notifications(target_date=target)
+        assert isinstance(pending, list)

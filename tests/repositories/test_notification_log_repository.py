@@ -169,3 +169,32 @@ class TestNotificationLogRepositoryMetrics:
 
         assert metrics["total"] == 0
         assert metrics["success_rate"] == 0.0
+
+
+class TestNotificationLogRepositoryExtra:
+
+    def test_count_all_empty(self, notification_log_repo):
+        assert notification_log_repo.count_all() == 0
+
+    def test_count_all_with_logs(self, notification_log_repo, sample_notification_log_data, populated_schedules):
+        data = sample_notification_log_data(schedule_id=populated_schedules[0].id)
+        notification_log_repo.create(data)
+        assert notification_log_repo.count_all() == 1
+
+    def test_get_by_date_range(self, notification_log_repo, sample_notification_log_data, populated_schedules):
+        data = sample_notification_log_data(schedule_id=populated_schedules[0].id)
+        notification_log_repo.create(data)
+        now = datetime.now()
+        results = notification_log_repo.get_by_date_range(
+            start_date=now - timedelta(days=1),
+            end_date=now + timedelta(days=1)
+        )
+        assert len(results) == 1
+
+    def test_get_by_date_range_empty(self, notification_log_repo):
+        now = datetime.now()
+        results = notification_log_repo.get_by_date_range(
+            start_date=now - timedelta(days=2),
+            end_date=now - timedelta(days=1)
+        )
+        assert results == []

@@ -101,6 +101,18 @@ class TestScheduleRepositoryMemberQueries:
 
         assert all(s.team_member_id == member.id for s in schedules)
 
+    def test_get_by_team_member_with_date_filters(self, schedule_repo, populated_schedules, populated_team_members, chicago_tz):
+        """Test get_by_team_member with start and end date filters."""
+        from datetime import datetime
+        member = populated_team_members[0]
+        now = datetime.now()
+        schedules = schedule_repo.get_by_team_member(
+            member.id,
+            start_date=now - timedelta(days=365),
+            end_date=now + timedelta(days=365)
+        )
+        assert isinstance(schedules, list)
+
     def test_get_next_assignment_for_member(self, schedule_repo, populated_schedules, populated_team_members):
         """Test getting next upcoming assignment for member."""
         member = populated_team_members[0]
@@ -153,3 +165,32 @@ class TestScheduleRepositoryBulkOperations:
 
         assert deleted_count >= 1
         assert schedule_repo.get_by_id(future_schedule.id) is None
+
+
+class TestScheduleRepositoryShiftQueries:
+
+    def test_get_by_shift_returns_matching(self, schedule_repo, populated_schedules, populated_shifts):
+        shift_id = populated_schedules[0].shift_id
+        results = schedule_repo.get_by_shift(shift_id)
+        assert all(s.shift_id == shift_id for s in results)
+
+    def test_get_by_shift_no_results(self, schedule_repo, populated_schedules):
+        results = schedule_repo.get_by_shift(99999)
+        assert results == []
+
+    def test_get_by_shift_with_date_range(self, schedule_repo, populated_schedules, populated_shifts, chicago_tz):
+        from datetime import datetime
+        shift_id = populated_schedules[0].shift_id
+        now = datetime.now()
+        results = schedule_repo.get_by_shift(
+            shift_id,
+            start_date=now - timedelta(days=365),
+            end_date=now + timedelta(days=365)
+        )
+        assert isinstance(results, list)
+
+    def test_get_by_week_number(self, schedule_repo, populated_schedules):
+        week = populated_schedules[0].week_number
+        results = schedule_repo.get_by_week_number(week)
+        assert len(results) >= 1
+        assert all(s.week_number == week for s in results)

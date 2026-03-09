@@ -66,6 +66,26 @@ class ScheduleOverrideRepository(BaseRepository[ScheduleOverride]):
             self.db.rollback()
             raise Exception(f"Database error getting display overrides: {str(e)}")
 
+    def get_active_overrides(self) -> List[ScheduleOverride]:
+        """
+        Get all currently active overrides.
+
+        Returns:
+            List of ScheduleOverride instances with status='active'
+
+        Raises:
+            Exception: If database operation fails
+        """
+        try:
+            return (
+                self.db.query(self.model)
+                .filter(self.model.status == 'active')
+                .all()
+            )
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise Exception(f"Database error getting active overrides: {str(e)}")
+
     def get_override_for_schedule(self, schedule_id: int) -> Optional[ScheduleOverride]:
         """
         Check if active override exists for a specific schedule.
