@@ -278,15 +278,14 @@ class TestScheduleServiceQueries:
         # All should be for the same member
         assert all(s.team_member_id == member_id for s in member_schedules)
 
-    @pytest.mark.skip(reason="v1.5.0: Schedule query logic changed - test fixture data outdated")
     def test_get_next_assignment(
         self, db_session, populated_team_members, populated_shifts, chicago_tz
     ):
         """Test getting next assignment for a team member."""
         service = ScheduleService(db_session)
 
-        # Generate future schedules
-        future_start = chicago_tz.localize(datetime(2026, 1, 1))
+        # Use a date well in the future so schedules are always upcoming
+        future_start = chicago_tz.localize(datetime(2027, 1, 4))  # Monday
         schedules = service.generate_schedule(future_start, weeks=4)
 
         # Get next assignment for first member

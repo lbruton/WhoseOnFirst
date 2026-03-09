@@ -41,21 +41,6 @@ class TestTeamMemberServiceCreate:
 
         assert member.is_active is False
 
-    @pytest.mark.skip(reason="v1.5.0: Duplicate phone validation removed - allows testing with single phone number")
-    def test_create_duplicate_phone_fails(self, db_session: Session, sample_team_member_data):
-        """Test that creating member with duplicate phone raises error."""
-        service = TeamMemberService(db_session)
-
-        # Create first member
-        service.create(sample_team_member_data)
-
-        # Attempt to create duplicate
-        with pytest.raises(DuplicatePhoneError) as exc_info:
-            service.create(sample_team_member_data)
-
-        assert "already registered" in str(exc_info.value).lower()
-        assert sample_team_member_data["phone"] in str(exc_info.value)
-
     def test_create_invalid_phone_format(self, db_session: Session):
         """Test that invalid phone format raises error."""
         service = TeamMemberService(db_session)
@@ -257,23 +242,6 @@ class TestTeamMemberServiceUpdate:
 
         with pytest.raises(InvalidPhoneError):
             service.update(created.id, {"phone": "invalid"})
-
-    @pytest.mark.skip(reason="v1.5.0: Duplicate phone validation removed - allows testing with single phone number")
-    def test_update_duplicate_phone_fails(self, db_session: Session, sample_team_member_data):
-        """Test that updating to duplicate phone raises error."""
-        service = TeamMemberService(db_session)
-
-        # Create two members
-        member1 = service.create(sample_team_member_data)
-
-        member2_data = sample_team_member_data.copy()
-        member2_data["name"] = "Member 2"
-        member2_data["phone"] = "+15559999999"
-        member2 = service.create(member2_data)
-
-        # Try to update member2 with member1's phone
-        with pytest.raises(DuplicatePhoneError):
-            service.update(member2.id, {"phone": member1.phone})
 
     def test_update_non_existent_member(self, db_session: Session):
         """Test that updating non-existent member raises error."""

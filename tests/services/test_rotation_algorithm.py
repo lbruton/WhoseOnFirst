@@ -96,46 +96,41 @@ class TestRotationAlgorithmBasic:
             shift_ids = [e["shift_id"] for e in week_entries]
             assert len(shift_ids) == len(set(shift_ids))
 
-    @pytest.mark.skip(reason="v1.5.0: Test expectations outdated - rotation_order field changed assignment logic")
     def test_circular_rotation_pattern(
         self, db_session, populated_team_members, populated_shifts, chicago_tz
     ):
-        """Test that members rotate through shifts in circular pattern."""
+        """Test that member assignment follows the continuous modulo cycling formula.
+
+        Algorithm: shifts_elapsed = (week * num_shifts) + shift_index
+                   member_index   = shifts_elapsed % num_members
+        """
         service = RotationAlgorithmService(db_session)
         start_date = chicago_tz.localize(datetime(2025, 11, 4))
 
-        # Get member IDs in sorted order (how algorithm sorts them)
-        # Algorithm uses get_ordered_for_rotation() which sorts by rotation_order, then ID
         members = TeamMemberRepository(db_session).get_ordered_for_rotation(active_only=True)
         member_ids = [m.id for m in members]
-
-        # Get shift IDs in order
         shifts = ShiftRepository(db_session).get_all_ordered()
-        shift_ids = [s.id for s in shifts]
 
         entries = service.generate_rotation(start_date, weeks=3)
 
-        # Group by week
+        # Sort entries by (week_number, shift_id) to recover shift_index per week
+        sorted_entries = sorted(entries, key=lambda e: (e["week_number"], e["shift_id"]))
+
+        # Group by week, preserving shift order
         weeks = {}
-        for entry in entries:
-            week = entry["week_number"]
-            if week not in weeks:
-                weeks[week] = []
-            weeks[week].append(entry)
+        for entry in sorted_entries:
+            weeks.setdefault(entry["week_number"], []).append(entry)
 
-        # Sort each week by shift_id to compare assignments
-        for week_num in sorted(weeks.keys()):
-            week_entries = sorted(weeks[week_num], key=lambda e: e["shift_id"])
-
-            for i, entry in enumerate(week_entries):
-                # Calculate expected member index with rotation
-                # Each week, person on Shift N moves to Shift N+1
-                # So member at index (i - week_offset) gets shift i
-                week_index = list(weeks.keys()).index(week_num)
-                expected_member_index = (i - week_index) % len(member_ids)
-                expected_member_id = member_ids[expected_member_index]
-
-                assert entry["team_member_id"] == expected_member_id
+        for week_index, week_num in enumerate(sorted(weeks.keys())):
+            week_entries = weeks[week_num]
+            for shift_index, entry in enumerate(week_entries):
+                shifts_elapsed = (week_index * len(shifts)) + shift_index
+                expected_member_index = shifts_elapsed % len(member_ids)
+                assert entry["team_member_id"] == member_ids[expected_member_index], (
+                    f"Week {week_num}, shift_index {shift_index}: "
+                    f"expected member {member_ids[expected_member_index]}, "
+                    f"got {entry['team_member_id']}"
+                )
 
     def test_members_rotate_forward_each_week(
         self, db_session, populated_team_members, populated_shifts, chicago_tz

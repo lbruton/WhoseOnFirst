@@ -92,23 +92,6 @@ class TestCreateTeamMember:
         assert "id" in data
         assert "created_at" in data
 
-    @pytest.mark.skip(reason="v1.5.0: Duplicate phone validation removed - allows testing with single phone number")
-    def test_create_duplicate_phone(self, client: TestClient, db_session: Session):
-        """Test creating member with duplicate phone number."""
-        # Create existing member
-        existing = TeamMember(name="Jane Smith", phone="+15551234567", is_active=True)
-        db_session.add(existing)
-        db_session.commit()
-
-        # Try to create duplicate
-        member_data = {
-            "name": "John Doe",
-            "phone": "+15551234567"
-        }
-        response = client.post("/api/v1/team-members/", json=member_data)
-        assert response.status_code == 400
-        assert "already registered" in response.json()["detail"].lower()
-
     def test_create_invalid_phone_format(self, client: TestClient):
         """Test creating member with invalid phone format."""
         member_data = {
@@ -189,21 +172,6 @@ class TestUpdateTeamMember:
         update_data = {"name": "John Smith"}
         response = client.put("/api/v1/team-members/999", json=update_data)
         assert response.status_code == 404
-
-    @pytest.mark.skip(reason="v1.5.0: Duplicate phone validation removed - allows testing with single phone number")
-    def test_update_duplicate_phone(self, client: TestClient, db_session: Session):
-        """Test updating to a phone number that already exists."""
-        member1 = TeamMember(name="John Doe", phone="+15551234567", is_active=True)
-        member2 = TeamMember(name="Jane Smith", phone="+15559876543", is_active=True)
-        db_session.add_all([member1, member2])
-        db_session.commit()
-        db_session.refresh(member1)
-
-        # Try to update member1 to have member2's phone
-        update_data = {"phone": "+15559876543"}
-        response = client.put(f"/api/v1/team-members/{member1.id}", json=update_data)
-        assert response.status_code == 400
-        assert "already registered" in response.json()["detail"].lower()
 
 
 class TestDeactivateTeamMember:

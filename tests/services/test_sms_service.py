@@ -264,16 +264,16 @@ class TestRetryLogic:
 class TestMessageComposition:
     """Tests for SMS message composition."""
 
-    @pytest.mark.skip(reason="v1.5.0: SMS template changed in v1.1.0 - test expects old format")
     def test_compose_message_format(self, sms_service_mock_mode, schedule):
-        """Test message composition follows correct format."""
+        """Test message composition uses current template variables correctly."""
         message = sms_service_mock_mode._compose_message(schedule)
 
-        assert "WhoseOnFirst:" in message
+        # Default template: "WhoseOnFirst Alert\n\nHi {name}, you are now on-call..."
+        assert "WhoseOnFirst Alert" in message
         assert schedule.team_member.name in message
-        assert "on-call shift has started" in message
+        assert schedule.start_datetime.strftime('%a %I:%M %p') in message
+        assert schedule.end_datetime.strftime('%a %I:%M %p') in message
         assert f"{schedule.shift.duration_hours}h" in message
-        assert "Questions? Contact admin." in message
 
     def test_compose_message_under_160_chars(self, sms_service_mock_mode, schedule):
         """Test message is under 160 characters for single SMS."""
@@ -281,16 +281,18 @@ class TestMessageComposition:
 
         assert len(message) <= 160
 
-    @pytest.mark.skip(reason="v1.5.0: SMS template changed in v1.1.0 - message length limits no longer apply")
     def test_compose_message_with_long_name(self, sms_service_mock_mode, schedule):
-        """Test message handling with very long member name."""
-        schedule.team_member.name = "X" * 100
+        """Test message includes full name without truncation."""
+        long_name = "X" * 100
+        schedule.team_member.name = long_name
         sms_service_mock_mode.db.commit()
 
         message = sms_service_mock_mode._compose_message(schedule)
 
-        # Should be truncated to 160 chars
-        assert len(message) <= 160
+        # Full name is included — no truncation applied
+        assert long_name in message
+        # Multi-part SMS is acceptable; no length cap enforced
+        assert len(message) > 160
 
 
 class TestBatchNotifications:
