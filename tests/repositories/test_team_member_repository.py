@@ -265,3 +265,35 @@ class TestTeamMemberRepositoryCount:
         """Test exists returns False for non-existent member."""
         exists = team_member_repo.exists(99999)
         assert exists is False
+
+
+class TestTeamMemberRepositoryRotation:
+    """Tests for rotation order methods."""
+
+    def test_get_max_rotation_order_empty(self, team_member_repo):
+        result = team_member_repo.get_max_rotation_order()
+        assert result == 0
+
+    def test_get_max_rotation_order_with_members(self, team_member_repo, populated_team_members):
+        result = team_member_repo.get_max_rotation_order()
+        assert isinstance(result, int)
+
+    def test_update_rotation_orders(self, team_member_repo, populated_team_members):
+        order_map = {m.id: i for i, m in enumerate(populated_team_members)}
+        updated = team_member_repo.update_rotation_orders(order_map)
+        assert len(updated) == len(populated_team_members)
+        for i, m in enumerate(updated):
+            assert m.rotation_order is not None
+
+    def test_update_rotation_orders_ignores_missing_id(self, team_member_repo, populated_team_members):
+        order_map = {99999: 5}
+        updated = team_member_repo.update_rotation_orders(order_map)
+        assert updated == []
+
+    def test_get_ordered_for_rotation_active_only(self, team_member_repo, populated_team_members):
+        results = team_member_repo.get_ordered_for_rotation(active_only=True)
+        assert all(m.is_active for m in results)
+
+    def test_get_ordered_for_rotation_all_members(self, team_member_repo, populated_team_members):
+        results = team_member_repo.get_ordered_for_rotation(active_only=False)
+        assert len(results) >= len(populated_team_members)

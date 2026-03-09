@@ -331,7 +331,7 @@ class SettingsService:
         updated["enabled"] = self.set_setting(
             ESCALATION_ENABLED,
             enabled,
-            "boolean",
+            "bool",
             "Enable escalation contact display on dashboard"
         )
 

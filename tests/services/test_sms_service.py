@@ -508,3 +508,230 @@ class TestIntegration:
         assert success_rate['total'] >= 1
         assert success_rate['sent'] >= 1
         assert success_rate['success_rate'] > 0
+
+
+# ===========================================================================
+# TestSendNotificationMissingShift
+# ===========================================================================
+
+class TestSendNotificationMissingShift:
+    """Test send_notification raises when schedule has no shift (line 147-148)."""
+
+    def test_no_shift_raises_sms_service_error(self, sms_service_mock_mode, schedule):
+        schedule.shift = None
+        with pytest.raises(SMSServiceError, match="no shift assigned"):
+            sms_service_mock_mode.send_notification(schedule)
+
+
+# ===========================================================================
+# TestIsRetryableError
+# ===========================================================================
+
+class TestIsRetryableError:
+    """Tests for _is_retryable_error (lines 630-646)."""
+
+    def _make_twilio_error(self, status=None, code=None):
+        """Create a minimal mock that looks like TwilioRestException."""
+        err = MagicMock(spec=TwilioRestException)
+        if status is not None:
+            err.status = status
+        else:
+            del err.status
+        if code is not None:
+            err.code = code
+        else:
+            del err.code
+        return err
+
+    def test_http_429_is_retryable(self, sms_service_mock_mode):
+        err = self._make_twilio_error(status=429)
+        assert sms_service_mock_mode._is_retryable_error(err) is True
+
+    def test_http_500_is_retryable(self, sms_service_mock_mode):
+        err = self._make_twilio_error(status=500)
+        assert sms_service_mock_mode._is_retryable_error(err) is True
+
+    def test_http_503_is_retryable(self, sms_service_mock_mode):
+        err = self._make_twilio_error(status=503)
+        assert sms_service_mock_mode._is_retryable_error(err) is True
+
+    def test_non_retryable_code_21211(self, sms_service_mock_mode):
+        err = self._make_twilio_error(code=21211)
+        assert sms_service_mock_mode._is_retryable_error(err) is False
+
+    def test_retryable_code_30001(self, sms_service_mock_mode):
+        err = self._make_twilio_error(code=30001)
+        assert sms_service_mock_mode._is_retryable_error(err) is True
+
+    def test_unknown_error_defaults_to_non_retryable(self, sms_service_mock_mode):
+        err = MagicMock(spec=TwilioRestException)
+        # Remove both status and code attributes
+        del err.status
+        del err.code
+        assert sms_service_mock_mode._is_retryable_error(err) is False
+
+
+# ===========================================================================
+# TestSanitizePhone
+# ===========================================================================
+
+class TestSanitizePhone:
+    """Tests for _sanitize_phone (lines 648-660)."""
+
+    def test_masks_last_4_digits(self, sms_service_mock_mode):
+        result = sms_service_mock_mode._sanitize_phone("+15551234567")
+        assert result == "+1555123XXXX"
+
+    def test_short_phone_returned_unchanged(self, sms_service_mock_mode):
+        result = sms_service_mock_mode._sanitize_phone("123")
+        assert result == "123"
+
+
+# ===========================================================================
+# TestComposeWeeklySummary
+# ===========================================================================
+
+class TestComposeWeeklySummary:
+    """Tests for _compose_weekly_summary (lines 505-607)."""
+
+    def test_empty_schedules_shows_no_assignment(self, sms_service_mock_mode):
+        message = sms_service_mock_mode._compose_weekly_summary([])
+        assert "WhoseOnFirst Weekly Schedule" in message
+        assert "No assignment" in message
+
+    def test_standard_week_includes_member_name(self, sms_service_mock_mode, schedule):
+        """Single 24h shift — should show member name and phone."""
+        schedule.start_datetime = datetime.now(CHICAGO_TZ).replace(
+            hour=8, minute=0, second=0, microsecond=0
+        )
+        schedule.end_datetime = schedule.start_datetime + timedelta(hours=24)
+        sms_service_mock_mode.db.commit()
+
+        message = sms_service_mock_mode._compose_weekly_summary([schedule])
+        assert schedule.team_member.name in message
+        assert "WhoseOnFirst Weekly Schedule" in message
+
+    def test_48h_shift_shows_continues_on_second_day(self, sms_service_mock_mode, test_db_session, team_member):
+        """48h shift should print '(48h)' on day 1 and '(continues)' on day 2."""
+        monday = datetime.now(CHICAGO_TZ).replace(
+            hour=8, minute=0, second=0, microsecond=0
+        )
+        # Find next Monday
+        days_ahead = (7 - monday.weekday()) % 7 or 7
+        monday = monday + timedelta(days=days_ahead)
+
+        shift_48 = Shift(
+            shift_number=2,
+            day_of_week="Tuesday-Wednesday",
+            start_time="08:00:00",
+            duration_hours=48
+        )
+        test_db_session.add(shift_48)
+        test_db_session.commit()
+        test_db_session.refresh(shift_48)
+
+        sched = Schedule(
+            team_member_id=team_member.id,
+            shift_id=shift_48.id,
+            week_number=1,
+            start_datetime=monday,
+            end_datetime=monday + timedelta(hours=48),
+            notified=False
+        )
+        test_db_session.add(sched)
+        test_db_session.commit()
+        test_db_session.refresh(sched)
+
+        message = sms_service_mock_mode._compose_weekly_summary([sched])
+        assert "(48h)" in message
+        assert "(continues)" in message
+
+
+# ===========================================================================
+# TestSendManualNotification
+# ===========================================================================
+
+class TestSendManualNotification:
+    """Tests for send_manual_notification (lines 769-851)."""
+
+    def test_success_returns_sent_status(self, sms_service_mock_mode, team_member):
+        result = sms_service_mock_mode.send_manual_notification(
+            team_member=team_member,
+            message="Hi John, this is a test notification."
+        )
+        assert result["success"] is True
+        assert result["status"] == "sent"
+        assert result["twilio_sid"] is not None
+        assert result["error"] is None
+
+    def test_twilio_error_returns_failed_status(self, sms_service_mock_mode, team_member):
+        twilio_err = MagicMock(spec=TwilioRestException)
+        twilio_err.__str__ = lambda self: "Twilio error 21211"
+
+        with patch.object(sms_service_mock_mode, "_send_sms", side_effect=twilio_err):
+            result = sms_service_mock_mode.send_manual_notification(
+                team_member=team_member,
+                message="test"
+            )
+
+        assert result["success"] is False
+        assert result["status"] == "failed"
+
+
+# ===========================================================================
+# TestSendEscalationWeeklySummary
+# ===========================================================================
+
+class TestSendEscalationWeeklySummary:
+    """Tests for send_escalation_weekly_summary (lines 888-1020)."""
+
+    def _make_config(self, primary=True, secondary=False):
+        config = {
+            "primary_name": "Alice" if primary else "",
+            "primary_phone": "+15551111111" if primary else "",
+            "secondary_name": "Bob" if secondary else "",
+            "secondary_phone": "+15552222222" if secondary else "",
+        }
+        return config
+
+    def test_primary_contact_only_sends_one(self, sms_service_mock_mode):
+        config = self._make_config(primary=True, secondary=False)
+        result = sms_service_mock_mode.send_escalation_weekly_summary(
+            message="Weekly schedule summary",
+            escalation_config=config
+        )
+        assert result["total"] == 1
+        assert result["successful"] == 1
+        assert result["failed"] == 0
+
+    def test_both_contacts_sends_two(self, sms_service_mock_mode):
+        config = self._make_config(primary=True, secondary=True)
+        result = sms_service_mock_mode.send_escalation_weekly_summary(
+            message="Weekly schedule summary",
+            escalation_config=config
+        )
+        assert result["total"] == 2
+        assert result["successful"] == 2
+
+    def test_no_contacts_sends_zero(self, sms_service_mock_mode):
+        config = self._make_config(primary=False, secondary=False)
+        result = sms_service_mock_mode.send_escalation_weekly_summary(
+            message="Weekly schedule summary",
+            escalation_config=config
+        )
+        assert result["total"] == 0
+        assert result["successful"] == 0
+
+    def test_twilio_error_increments_failed(self, sms_service_mock_mode):
+        config = self._make_config(primary=True, secondary=False)
+        twilio_err = MagicMock(spec=TwilioRestException)
+        twilio_err.__str__ = lambda self: "Twilio error"
+
+        with patch.object(sms_service_mock_mode, "_send_sms", side_effect=twilio_err):
+            result = sms_service_mock_mode.send_escalation_weekly_summary(
+                message="Weekly schedule summary",
+                escalation_config=config
+            )
+
+        assert result["failed"] == 1
+        assert result["successful"] == 0
