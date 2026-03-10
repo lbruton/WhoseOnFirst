@@ -208,8 +208,8 @@ if frontend_path.exists():
         # Check if the file exists directly
         file_path = frontend_path / full_path
         if file_path.exists() and file_path.is_file():
-            # Only set no-cache for HTML files; let static assets (JS/CSS/images) cache normally
-            if str(file_path).endswith(".html"):
+            # HTML and sw.js must never be cached — stale sw.js breaks all future SW cache busts
+            if str(file_path).endswith(".html") or file_path.name == "sw.js":
                 return FileResponse(file_path, headers=no_cache_headers)
             return FileResponse(file_path)
 
