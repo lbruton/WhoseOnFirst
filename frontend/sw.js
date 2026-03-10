@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wof-shell-v1';
+const CACHE_NAME = 'wof-shell-v2';
 const SHELL_URLS = [
   '/',
   '/index.html',
@@ -11,6 +11,7 @@ const SHELL_URLS = [
   '/admin.html',
   '/help.html',
   '/change-password.html',
+  '/styleguide.html',
   '/js/sidebar-loader.js',
   '/js/team-colors.js',
   '/js/theme.js',
