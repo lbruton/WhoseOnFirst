@@ -95,10 +95,35 @@
         .day-card-body {
             text-align: center;
         }
+
+        /* Dark mode overrides */
+        [data-bs-theme="dark"] .page-body {
+            background-color: var(--bs-body-bg) !important;
+        }
+        [data-bs-theme="dark"] .card {
+            background-color: var(--bs-card-bg, var(--bs-body-bg));
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+
+        /* Mobile: 14-day preview reflow */
+        @media (max-width: 768px) {
+            #twoWeekPreview {
+                --bs-columns: 2;
+            }
+            #twoWeekPreview .col {
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+        }
     </style>
 
     <!-- Shared team color utilities -->
     <script src="/js/team-colors.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#206bc4">
+    <script src="/js/theme.js"></script>
+    <script src="/js/pwa.js" defer></script>
 </head>
 <body data-page="schedule">
     <div class="page">
