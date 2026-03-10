@@ -170,20 +170,36 @@
 
         /* Dark mode overrides */
         [data-bs-theme="dark"] .page-body {
-            background-color: var(--bs-body-bg) !important;
+            background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
-            background-color: var(--bs-card-bg, var(--bs-body-bg));
-            border-color: var(--bs-border-color);
-            color: var(--bs-body-color);
+            background-color: var(--tblr-bg-surface);
+            border-color: var(--tblr-border-color);
+            color: var(--tblr-body-color);
         }
-        [data-bs-theme="dark"] .calendar-day {
-            background-color: var(--bs-secondary-bg);
-            border-color: var(--bs-border-color);
+        /* Calendar grid: background serves as the gap/border color */
+        [data-bs-theme="dark"] .calendar-grid {
+            background: var(--tblr-border-color);
         }
         [data-bs-theme="dark"] .calendar-header {
-            background-color: var(--bs-tertiary-bg);
-            color: var(--bs-body-color);
+            background-color: var(--tblr-tertiary-bg) !important;
+            color: var(--tblr-secondary-color);
+        }
+        [data-bs-theme="dark"] .calendar-day {
+            background-color: var(--tblr-body-bg) !important;
+            border-color: var(--tblr-border-color);
+        }
+        [data-bs-theme="dark"] .calendar-day.weekend {
+            background-color: var(--tblr-secondary-bg) !important;
+        }
+        [data-bs-theme="dark"] .calendar-day:hover {
+            background-color: var(--tblr-tertiary-bg) !important;
+        }
+        [data-bs-theme="dark"] .calendar-day-header {
+            color: var(--tblr-secondary-color);
+        }
+        [data-bs-theme="dark"] .calendar-day.today .calendar-day-header {
+            color: #4da3ff;
         }
 
         /* Mobile: calendar grid reflow */
