@@ -12,6 +12,7 @@
 
     <!-- Load sidebar component -->
     <script src="/js/sidebar-loader.js" defer></script>
+    <script src="/js/auth-init.js" defer></script>
 
     <style>
         /* Logo SVG styling */
@@ -880,78 +881,17 @@
 
         // Authentication guard - MUST run before anything else
         // Wait for sidebar to load before initializing page
-        window.addEventListener('sidebarLoaded', async function() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
-                    credentials: 'include'
-                });
+        window.addEventListener('authReady', function(e) {
+            currentUser = e.detail.user;
+            loadDashboardData();
 
-                if (!response.ok) {
-                    window.location.href = '/login.html';
-                    return;
-                }
+            // Wire up navigation buttons
+            document.getElementById('prevMonth').addEventListener('click', navigatePrevMonth);
+            document.getElementById('nextMonth').addEventListener('click', navigateNextMonth);
+            document.getElementById('todayBtn').addEventListener('click', navigateToday);
 
-                currentUser = await response.json();
-
-                // Update user info display
-                document.getElementById('usernameDisplay').textContent = currentUser.username;
-
-                // Set role display and icon based on user role
-                const roleIcon = document.getElementById('userRoleIcon').querySelector('i');
-                if (currentUser.role === 'admin') {
-                    document.getElementById('userRoleDisplay').textContent = 'Administrator';
-                    roleIcon.className = 'ti ti-shield-check';
-                } else {
-                    document.getElementById('userRoleDisplay').textContent = 'Viewer';
-                    roleIcon.className = 'ti ti-eye';
-                }
-
-                // Hide admin-only menu items for viewers
-                if (currentUser.role === 'viewer') {
-                    const adminOnlyElements = document.querySelectorAll('.admin-only');
-                    adminOnlyElements.forEach(el => el.style.display = 'none');
-                }
-
-                // Wire up logout button
-                document.getElementById('logoutBtn').addEventListener('click', async function(e) {
-                    e.preventDefault();
-                    try {
-                        await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
-                            method: 'POST',
-                            credentials: 'include'
-                        });
-                    } catch (error) {
-                        console.error('Logout error:', error);
-                    }
-                    window.location.href = '/login.html';
-                });
-
-                // Console easter egg for developers
-                console.log(
-                    '%c🎭 WhoseOnFirst%c\n\n' +
-                    'Who\'s on first?\n' +
-                    'What\'s on second?\n' +
-                    'I Don\'t Know\'s on third!\n\n' +
-                    '💡 Tip: Shift-click the logo to see our inspiration\n\n' +
-                    'Built with ❤️ and a love for classic comedy',
-                    'font-size: 20px; font-weight: bold; color: #206bc4;',
-                    'font-size: 12px; color: #666;'
-                );
-
-                // Continue with normal page initialization
-                await loadDashboardData();
-
-                // Wire up navigation buttons
-                document.getElementById('prevMonth').addEventListener('click', navigatePrevMonth);
-                document.getElementById('nextMonth').addEventListener('click', navigateNextMonth);
-                document.getElementById('todayBtn').addEventListener('click', navigateToday);
-
-                // Wire up logo easter egg
-                document.getElementById('appLogo').addEventListener('click', handleLogoClick);
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                window.location.href = '/login.html';
-            }
+            // Wire up logo easter egg
+            document.getElementById('appLogo').addEventListener('click', handleLogoClick);
         });
     </script>
 </body>

@@ -13,6 +13,7 @@ const SHELL_URLS = [
   '/change-password.html',
   '/styleguide.html',
   '/js/sidebar-loader.js',
+  '/js/auth-init.js',
   '/js/team-colors.js',
   '/js/theme.js',
   '/js/pwa.js',
