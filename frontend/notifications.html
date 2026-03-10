@@ -62,6 +62,11 @@
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
         }
+        /* bg-light doesn't adapt in Tabler dark mode — override all occurrences */
+        [data-bs-theme="dark"] .bg-light {
+            background-color: var(--tblr-secondary-bg) !important;
+            color: var(--tblr-body-color) !important;
+        }
 
         @media (max-width: 768px) {
             .table-responsive { overflow-x: auto; }
