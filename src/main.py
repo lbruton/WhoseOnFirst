@@ -197,18 +197,23 @@ if frontend_path.exists():
             "change-password.html": "change-password.html"
         }
 
+        no_cache_headers = {"Cache-Control": "no-store"}
+
         # Check if it's a direct HTML file request
         if full_path in route_map:
             file_path = frontend_path / route_map[full_path]
             if file_path.exists():
-                return FileResponse(file_path)
+                return FileResponse(file_path, headers=no_cache_headers)
 
         # Check if the file exists directly
         file_path = frontend_path / full_path
         if file_path.exists() and file_path.is_file():
+            # Only set no-cache for HTML files; let static assets (JS/CSS/images) cache normally
+            if str(file_path).endswith(".html"):
+                return FileResponse(file_path, headers=no_cache_headers)
             return FileResponse(file_path)
 
         # Default to index.html for SPA routes
-        return FileResponse(frontend_path / "index.html")
+        return FileResponse(frontend_path / "index.html", headers=no_cache_headers)
 else:
     logger.warning(f"Frontend directory not found: {frontend_path}")
