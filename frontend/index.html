@@ -52,7 +52,7 @@
         }
         
         .calendar-day {
-            min-height: 110px;
+            min-height: 80px;
             border: 1px solid #e6e7e9;
             padding: 8px;
             background: white;
@@ -82,7 +82,7 @@
         .on-call-badge {
             color: white;
             padding: 8px 10px;
-            border-radius: 6px;
+            border-radius: 4px;
             font-size: 11px;
             font-weight: 500;
             display: inline-block;
@@ -813,9 +813,7 @@
                         badge.className = `on-call-badge ${colorClass}`;
 
                         let displayName = displayMember.name;
-                        if (shift.duration_hours === 48) {
-                            displayName += ' (48h)';
-                        }
+                        // 48h label intentionally omitted for cleaner calendar display
 
                         // Add override indicator
                         const overrideIndicator = override
