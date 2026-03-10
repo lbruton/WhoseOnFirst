@@ -46,6 +46,15 @@
             });
         }
 
+        // Apply theme and wire toggle button
+        if (window.__wofTheme) {
+            window.__wofTheme.apply();
+        }
+        // Register service worker
+        if (window.__wofPwa) {
+            window.__wofPwa.register();
+        }
+
         // Dispatch a custom event to signal sidebar is loaded
         // This allows page-specific scripts to initialize after sidebar is ready
         window.dispatchEvent(new CustomEvent('sidebarLoaded'));
