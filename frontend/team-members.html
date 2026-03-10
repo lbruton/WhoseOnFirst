@@ -109,10 +109,28 @@
             display: none;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
+
+        /* Dark mode overrides */
+        [data-bs-theme="dark"] .page-body {
+            background-color: var(--bs-body-bg) !important;
+        }
+        [data-bs-theme="dark"] .card {
+            background-color: var(--bs-card-bg, var(--bs-body-bg));
+            border-color: var(--bs-border-color);
+            color: var(--bs-body-color);
+        }
+
+        @media (max-width: 768px) {
+            .table-responsive { overflow-x: auto; }
+        }
     </style>
 
     <!-- Shared team color utilities -->
     <script src="/js/team-colors.js"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#206bc4">
+    <script src="/js/theme.js"></script>
+    <script src="/js/pwa.js" defer></script>
 </head>
 <body data-page="team-members">
     <div class="page">
