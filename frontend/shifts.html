@@ -10,6 +10,7 @@
 
     <!-- Load sidebar component -->
     <script src="/js/sidebar-loader.js" defer></script>
+    <script src="/js/auth-init.js" defer></script>
 
     <style>
         /* Page background for better card separation */
@@ -760,69 +761,14 @@
             await loadShifts();
         }
 
-        // Authentication guard - FIRST thing to execute on page load
-        window.addEventListener('sidebarLoaded', async function() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
-                    credentials: 'include'
+        window.addEventListener('authReady', function(e) {
+            currentUser = e.detail.user;
+            if (currentUser.role === 'viewer') {
+                document.querySelectorAll('form').forEach(function(form) {
+                    form.addEventListener('submit', function(ev) { ev.preventDefault(); });
                 });
-
-                if (!response.ok) {
-                    // Not authenticated - redirect immediately
-                    window.location.href = '/login.html';
-                    return;
-                }
-
-                currentUser = await response.json();
-
-                // Update user info display
-                document.getElementById('usernameDisplay').textContent = currentUser.username;
-
-                // Set role display and icon based on user role
-                const roleIcon = document.getElementById('userRoleIcon').querySelector('i');
-                if (currentUser.role === 'admin') {
-                    document.getElementById('userRoleDisplay').textContent = 'Administrator';
-                    roleIcon.className = 'ti ti-shield-check';
-                } else {
-                    document.getElementById('userRoleDisplay').textContent = 'Viewer';
-                    roleIcon.className = 'ti ti-eye';
-                }
-
-                // Hide admin-only features for viewers
-                if (currentUser.role === 'viewer') {
-                    // Hide all create/edit/delete buttons and menu items
-                    const adminButtons = document.querySelectorAll('.admin-only');
-                    adminButtons.forEach(btn => btn.style.display = 'none');
-
-                    // Disable all forms
-                    document.querySelectorAll('form').forEach(form => {
-                        form.addEventListener('submit', function(e) {
-                            e.preventDefault();
-                            alert('You do not have permission to perform this action. Contact an administrator.');
-                        });
-                    });
-                }
-
-                // Wire up logout button
-                document.getElementById('logoutBtn').addEventListener('click', async function(e) {
-                    e.preventDefault();
-                    try {
-                        await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
-                            method: 'POST',
-                            credentials: 'include'
-                        });
-                    } catch (error) {
-                        console.error('Logout error:', error);
-                    }
-                    window.location.href = '/login.html';
-                });
-
-                // Load data after successful auth check
-                await loadShiftsData();
-            } catch (error) {
-                console.error('Auth check failed:', error);
-                window.location.href = '/login.html';
             }
+            loadShiftsData();
         });
     </script>
 </body>
