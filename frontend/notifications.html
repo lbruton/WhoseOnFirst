@@ -68,6 +68,23 @@
             color: var(--tblr-body-color) !important;
         }
 
+        /* SMS template preview: terminal-style dark green in dark mode */
+        [data-bs-theme="dark"] #templateReadView .bg-light {
+            background-color: #0d1117 !important;
+            border-color: #22c55e !important;
+            color: #22c55e !important;
+        }
+        [data-bs-theme="dark"] #templateReadView .bg-light strong {
+            color: #86efac !important;
+        }
+        [data-bs-theme="dark"] #templateReadView .bg-light .font-monospace {
+            color: #4ade80 !important;
+        }
+        [data-bs-theme="dark"] #templateReadView .bg-light hr {
+            border-color: #22c55e !important;
+            opacity: 0.3;
+        }
+
         @media (max-width: 768px) {
             .table-responsive { overflow-x: auto; }
         }
