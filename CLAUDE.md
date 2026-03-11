@@ -203,19 +203,6 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
 
 ---
 
-## Memento Entity Types (Reference Only)
-
-Memento is paused for mem0 trial. These entity types are retained for reference:
-
-- `WHOSEONFIRST:DEVELOPMENT:SESSION`
-- `WHOSEONFIRST:WORKFLOW:PATTERN`
-- `WHOSEONFIRST:BACKEND:INSIGHT`
-- `WHOSEONFIRST:SCHEDULER:DECISION`
-
-**Taxonomy tags:** `project:whoseonfirst`, `linear:WHO-X`, domain tags, temporal tags
-
----
-
 ## Project Phases
 
 **Phase 1: MVP** — COMPLETE
@@ -235,8 +222,10 @@ Memento is paused for mem0 trial. These entity types are retained for reference:
 6. Validate all inputs (Pydantic models)
 7. Use dependency injection (FastAPI `Depends()`)
 
----
 
-## Code Search Path
 
-`mcp__claude-context__search_code` path: `/Volumes/DATA/GitHub/WhoseOnFirst`
+## Code Search
+
+> See global `~/.claude/CLAUDE.md` for the full code search tier order (HARD GATE).
+
+**Project search path**: `/Volumes/DATA/GitHub/WhoseOnFirst`
