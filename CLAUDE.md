@@ -25,7 +25,7 @@ Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs
 
 **Work From:**
 
-- **Linear Issues:** https://linear.app/hextrackr (Team: WhoseOnFirst)
+- **Issues:** DocVault vault, prefix `WHO` (see `issue` skill)
 - **Requirements:** `/docs/planning/PRD.md` (living document)
 - **Code Patterns:** `/docs/reference/code-patterns.md`
 
@@ -196,10 +196,9 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
 
 ---
 
-## Linear Integration
+## Issue Tracking
 
-**Team:** WhoseOnFirst
-**URL:** https://linear.app/hextrackr
+Issues tracked in DocVault vault. Prefix: `WHO` (see `issue` skill).
 
 ---
 
