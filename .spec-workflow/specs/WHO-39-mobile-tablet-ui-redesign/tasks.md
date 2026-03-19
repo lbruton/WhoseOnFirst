@@ -115,7 +115,7 @@
   - _Requirements: REQ-3 (AC 1, 2, 5), REQ-4 (AC 1)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Enhance responsive CSS in `frontend/index.html`. (1) The escalation chain already has a `@media (max-width: 768px)` rule stacking columns — verify it works at 375px and fix any overflow issues. (2) The stat card row uses `col-sm-6 col-lg-4` — add a `col-6` class so cards show 2-per-row even at xs widths instead of full-width stacking. (3) Verify the calendar grid reflow (existing `@media` makes it single-column at 768px) works cleanly. (4) Check all interactive elements for 44px minimum touch target. Fix any that are too small. (5) Verify dark mode compatibility of any new/changed CSS. | Restrictions: Minimal changes — this page already has decent mobile CSS. Do NOT restructure the dashboard layout. Only add/fix what's needed. | Success: Dashboard looks good at 375px, 768px, and 1024px. No horizontal overflow. Stat cards show 2-per-row on small screens. Escalation chain stacks cleanly. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [-] 5. Schedule pages responsive CSS `ui:true`
+- [x] 5. Schedule pages responsive CSS `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/schedule.html`:
     - 14-day preview: add single-column reflow at 576px (existing is 2-col at 768px)
@@ -160,7 +160,7 @@
   - _Requirements: REQ-3 (AC 1, 2), REQ-4 (AC 1, 3, 4)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Final responsive CSS pass on three pages. In `frontend/admin.html`: (1) Add a visible file input button (`<input type="file">` styled as a Tabler button) with class `d-md-none` above the drag-drop zone — mobile users can't drag files, they need a tap-to-browse button. The existing drop zone stays visible on desktop (hide the button with `d-none d-md-block` is wrong — the button is for mobile, drop zone for desktop). (2) Verify export/import forms stack cleanly. In `frontend/help.html`: minor spacing check — info cards use `col-md-6` which stacks on mobile naturally. Verify no overflow. In `frontend/change-password.html`: verify `col-md-6` forms stack properly, check input types (`type="password"` is correct). (3) Dark mode compatibility on all changes. (4) Ensure all form inputs use appropriate mobile input types (REQ-4 AC 3). | Restrictions: Minimal changes on help/change-password — they should mostly work already. Focus effort on admin page file upload UX. | Success: Admin file upload works via tap on mobile. All three pages display correctly at 375px. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [ ] 9. Cross-page dark mode and touch target audit
+- [x] 9. Cross-page dark mode and touch target audit
   - **Recommended Agent:** Claude
   - **ui:true**
   - Audit all modified pages in Chrome DevTools:
