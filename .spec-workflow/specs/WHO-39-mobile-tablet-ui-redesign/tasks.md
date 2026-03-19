@@ -115,7 +115,7 @@
   - _Requirements: REQ-3 (AC 1, 2, 5), REQ-4 (AC 1)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Enhance responsive CSS in `frontend/index.html`. (1) The escalation chain already has a `@media (max-width: 768px)` rule stacking columns — verify it works at 375px and fix any overflow issues. (2) The stat card row uses `col-sm-6 col-lg-4` — add a `col-6` class so cards show 2-per-row even at xs widths instead of full-width stacking. (3) Verify the calendar grid reflow (existing `@media` makes it single-column at 768px) works cleanly. (4) Check all interactive elements for 44px minimum touch target. Fix any that are too small. (5) Verify dark mode compatibility of any new/changed CSS. | Restrictions: Minimal changes — this page already has decent mobile CSS. Do NOT restructure the dashboard layout. Only add/fix what's needed. | Success: Dashboard looks good at 375px, 768px, and 1024px. No horizontal overflow. Stat cards show 2-per-row on small screens. Escalation chain stacks cleanly. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [ ] 5. Schedule pages responsive CSS `ui:true`
+- [-] 5. Schedule pages responsive CSS `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/schedule.html`:
     - 14-day preview: add single-column reflow at 576px (existing is 2-col at 768px)
@@ -147,7 +147,7 @@
   - _Requirements: REQ-3 (AC 1, 2, 6), REQ-4 (AC 1)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Enhance responsive CSS on `frontend/shifts.html`. (1) Add card-view toggle for the shifts configuration table — same pattern as Tasks 5-6: button group visible below 768px, Table/Cards toggle, localStorage key `wof-shifts-view`. Each shift card should show shift name, days, hours, and duration clearly. (2) Verify the shift edit/create modal works on mobile (Bootstrap modals are responsive by default, but check for any overflow issues). (3) Dark mode compatibility. | Restrictions: Same card-view toggle pattern. Do NOT change shift CRUD logic. | Success: Shifts page works at 375px/768px/1024px. Card toggle works. Modals usable on mobile. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [ ] 8. Admin, Help, Change Password responsive CSS `ui:true`
+- [x] 8. Admin, Help, Change Password responsive CSS `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/admin.html`:
     - Add visible file input button for mobile (`d-md-none`) alongside drop zone

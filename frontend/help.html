@@ -15,16 +15,9 @@
     <script src="/js/auth-init.js" defer></script>
 
     <style>
-        /* Custom Logo Styles */
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .logo-svg {
-            width: 32px;
-            height: 32px;
-        }
+        /* Page background and card contrast */
+        .page-body { background-color: #d5dce6; }
+        .card { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
 
         /* Code block styling */
         .code-block {
@@ -80,6 +73,7 @@
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
             background-color: var(--tblr-bg-surface);
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);

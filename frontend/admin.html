@@ -12,7 +12,9 @@
     <script src="/js/auth-init.js" defer></script>
 
     <style>
-        .logo-svg { width: 32px; height: 32px; }
+        /* Page background and card contrast */
+        .page-body { background-color: #d5dce6; }
+        .card { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
 
         .import-drop-zone {
             border: 2px dashed #dee2e6;
@@ -33,6 +35,7 @@
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
             background-color: var(--tblr-bg-surface);
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
@@ -119,6 +122,13 @@
                                                 The restore is atomic — if anything fails, no data is changed.
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <div class="mb-3 d-md-none">
+                                        <label class="btn btn-outline-primary w-100" style="min-height: 44px;">
+                                            <i class="ti ti-upload me-2"></i> Choose File to Import
+                                            <input type="file" accept=".stvault,.json" style="display:none;" onchange="handleMobileFileSelect(this)">
+                                        </label>
                                     </div>
 
                                     <div class="import-drop-zone" id="dropZone">
@@ -231,6 +241,12 @@
         // Import — file selection
         // ----------------------------------------------------------------
         let selectedFile = null;
+
+        function handleMobileFileSelect(input) {
+            if (input.files && input.files[0]) {
+                handleFileSelected(input.files[0]);
+            }
+        }
 
         function handleFileSelected(file) {
             selectedFile = file;

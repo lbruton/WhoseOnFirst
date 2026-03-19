@@ -15,16 +15,9 @@
     <script src="/js/auth-init.js" defer></script>
 
     <style>
-        /* Custom Logo Styles */
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .logo-svg {
-            width: 32px;
-            height: 32px;
-        }
+        /* Page background and card contrast */
+        .page-body { background-color: #d5dce6; }
+        .card { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
 
         /* Enhanced Cards */
         .stat-card {
@@ -84,11 +77,29 @@
         .team-color-15 { background-color: #c2410c; color: white; } /* Rust */
         .team-color-16 { background-color: #7e22ce; color: white; } /* Violet */
 
+        /* Override card-view styles */
+        .override-card .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .override-card .card-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--tblr-secondary-color);
+            letter-spacing: 0.03em;
+        }
+        .override-card .card-value {
+            font-size: 0.875rem;
+        }
+
         /* Dark mode overrides */
         [data-bs-theme="dark"] .page-body {
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
             background-color: var(--tblr-bg-surface);
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
@@ -143,7 +154,7 @@
                 <div class="container-xl">
                     <!-- Stats Cards -->
                     <div class="row row-deck row-cards mb-4">
-                        <div class="col-sm-6 col-lg-4">
+                        <div class="col-6 col-lg-4">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -161,7 +172,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 col-lg-4">
+                        <div class="col-6 col-lg-4">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -179,7 +190,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 col-lg-4">
+                        <div class="col-6 col-lg-4">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -206,35 +217,48 @@
                                 <i class="ti ti-history me-2"></i>
                                 Override History
                             </h3>
-                            <div class="card-actions">
+                            <div class="card-actions d-flex align-items-center gap-2">
+                                <div class="btn-group" role="group" aria-label="View toggle">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary active" data-override-view="table" onclick="toggleOverrideView('table')">
+                                        <i class="ti ti-table"></i> Table
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-override-view="cards" onclick="toggleOverrideView('cards')">
+                                        <i class="ti ti-layout-cards"></i> Cards
+                                    </button>
+                                </div>
                                 <button class="btn btn-sm" id="refreshTable">
                                     <i class="ti ti-refresh"></i> Refresh
                                 </button>
                             </div>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table card-table table-vcenter">
-                                <thead>
-                                    <tr>
-                                        <th>Override Date</th>
-                                        <th>Original Member</th>
-                                        <th>Override Member</th>
-                                        <th>Reason</th>
-                                        <th>Status</th>
-                                        <th>Created By</th>
-                                        <th>Created At (CST)</th>
-                                        <th class="w-1">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="overrideTableBody">
-                                    <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">
-                                            <i class="ti ti-loader-2 ti-spin me-2"></i>
-                                            Loading overrides...
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <div id="overrideTableView">
+                            <div class="table-responsive">
+                                <table class="table card-table table-vcenter">
+                                    <thead>
+                                        <tr>
+                                            <th>Override Date</th>
+                                            <th>Original Member</th>
+                                            <th>Override Member</th>
+                                            <th>Reason</th>
+                                            <th>Status</th>
+                                            <th>Created By</th>
+                                            <th>Created At (CST)</th>
+                                            <th class="w-1">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="overrideTableBody">
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">
+                                                <i class="ti ti-loader-2 ti-spin me-2"></i>
+                                                Loading overrides...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="overrideCardView" style="display:none;" class="p-3">
+                            <div class="row g-3" id="overrideCardContainer"></div>
                         </div>
 
                         <!-- Pagination -->
@@ -361,6 +385,12 @@
             // Set up event listeners
             document.getElementById('refreshTable').addEventListener('click', () => loadOverrides(currentPage));
             document.getElementById('createOverrideForm').addEventListener('submit', handleCreateOverride);
+
+            // Restore saved view preference after table is populated
+            var savedView = localStorage.getItem('wof-overrides-view');
+            if (savedView === 'cards') {
+                toggleOverrideView('cards');
+            }
         }
 
         // Load team members for dropdown
@@ -543,6 +573,12 @@
                     </tr>
                 `;
             }).join('');
+
+            // If card view is active, re-render cards from updated table
+            var cardEl = document.getElementById('overrideCardView');
+            if (cardEl && cardEl.style.display !== 'none') {
+                renderOverrideCards();
+            }
         }
 
         // Update pagination info
@@ -690,6 +726,57 @@
                 console.error('Failed to cancel override:', error);
                 showMessage(error.message, 'danger');
             }
+        }
+
+        // Card-view toggle for override table
+        function toggleOverrideView(view) {
+            var tableEl = document.getElementById('overrideTableView');
+            var cardEl = document.getElementById('overrideCardView');
+            var btns = document.querySelectorAll('[data-override-view]');
+            btns.forEach(function(b) { b.classList.toggle('active', b.dataset.overrideView === view); });
+            if (view === 'table') {
+                tableEl.style.display = '';
+                cardEl.style.display = 'none';
+            } else {
+                tableEl.style.display = 'none';
+                cardEl.style.display = '';
+                renderOverrideCards();
+            }
+            try { localStorage.setItem('wof-overrides-view', view); } catch(e) {}
+        }
+
+        function renderOverrideCards() {
+            var container = document.getElementById('overrideCardContainer');
+            var rows = document.querySelectorAll('#overrideTableBody tr');
+            var html = '';
+            rows.forEach(function(row) {
+                var cells = row.querySelectorAll('td');
+                if (cells.length >= 7) {
+                    // cells: 0=Date, 1=Original, 2=Override, 3=Reason, 4=Status, 5=Created By, 6=Created At, 7=Actions
+                    html += '<div class="col-12">' +
+                        '<div class="card override-card mb-0">' +
+                        '<div class="card-body py-2 px-3">' +
+                        '<div class="card-row">' +
+                        '<div><span class="card-label">Override Date</span><div class="card-value fw-bold">' + cells[0].textContent.trim() + '</div></div>' +
+                        cells[4].innerHTML +
+                        '</div>' +
+                        '<div class="card-row">' +
+                        '<div><span class="card-label">Original</span><div class="card-value">' + cells[1].textContent.trim() + '</div></div>' +
+                        '<div><span class="card-label">Replacement</span><div class="card-value">' + cells[2].textContent.trim() + '</div></div>' +
+                        '</div>' +
+                        (cells[3].textContent.trim() !== '-' ?
+                            '<div><span class="card-label">Reason</span><div class="card-value text-muted" style="font-size:0.8rem;">' + cells[3].textContent.trim() + '</div></div>' : '') +
+                        '<div class="card-row mt-1">' +
+                        '<div class="text-muted" style="font-size:0.7rem;">' + cells[5].textContent.trim() + ' &middot; ' + cells[6].textContent.trim() + '</div>' +
+                        (cells[7] && cells[7].textContent.trim() !== '-' ? cells[7].innerHTML : '') +
+                        '</div>' +
+                        '</div></div></div>';
+                }
+            });
+            if (!html) {
+                html = '<div class="col-12 text-center text-muted py-3">No overrides to display</div>';
+            }
+            container.innerHTML = html;
         }
 
         // Show toast message

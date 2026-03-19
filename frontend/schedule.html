@@ -13,26 +13,9 @@
     <script src="/js/auth-init.js" defer></script>
 
     <style>
-        /* Page background for better card separation */
-        .page-body {
-            background-color: #f1f5f9;
-        }
-
-        .logo-svg {
-            width: 32px;
-            height: 32px;
-        }
-
-        /* Card styling consistent with other pages */
-        .card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
+        /* Page background and card contrast */
+        .page-body { background-color: #d5dce6; }
+        .card { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
 
         /* Team member color blocks */
         .team-member-block {
@@ -102,6 +85,7 @@
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
             background-color: var(--tblr-bg-surface);
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
@@ -115,6 +99,15 @@
             #twoWeekPreview .col {
                 flex: 0 0 50%;
                 max-width: 50%;
+            }
+        }
+        @media (max-width: 576px) {
+            #twoWeekPreview {
+                --bs-columns: 1;
+            }
+            #twoWeekPreview .col {
+                flex: 0 0 100%;
+                max-width: 100%;
             }
         }
     </style>
