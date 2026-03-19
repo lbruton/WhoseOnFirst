@@ -127,7 +127,7 @@
   - _Requirements: REQ-3 (AC 1, 2, 7), REQ-4 (AC 1)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Enhance responsive CSS on schedule pages. In `frontend/schedule.html`: (1) The 14-day preview has `@media (max-width: 768px)` reflowing to 2 columns — add a second breakpoint at 576px reflowing to single column. (2) Verify form inputs (Start Date, Duration) stack cleanly on mobile. In `frontend/schedule-overrides.html`: (1) Add `col-6` to stat cards for 2-per-row at xs. (2) Add a card-view toggle for the overrides data table — use a button group (`d-md-none`) with Table/Cards options. When Cards is active, render each table row as a stacked card with key-value pairs. Toggle state persists via `localStorage.setItem('wof-overrides-view', 'cards')`. (3) Verify dark mode on all changes. | Restrictions: Reuse the same card-view toggle pattern across all table pages (consistent UI). Do NOT change table data fetching or API calls. | Success: Schedule pages work cleanly at 375px, 768px, 1024px. Card-view toggle works on overrides page. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [-] 6. Notifications page responsive + card-view toggle `ui:true`
+- [x] 6. Notifications page responsive + card-view toggle `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/notifications.html`:
     - Stat cards: add `col-6` for xs (currently `col-sm-6 col-lg-3`)

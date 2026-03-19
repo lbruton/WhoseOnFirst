@@ -21,10 +21,10 @@
             align-items: center;
             gap: 10px;
         }
-        .logo-svg {
-            width: 32px;
-            height: 32px;
-        }
+
+        /* Page background and card contrast */
+        .page-body { background-color: #d5dce6; }
+        .card { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
 
         /* Enhanced Cards */
         .stat-card {
@@ -58,6 +58,7 @@
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
             background-color: var(--tblr-bg-surface);
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
@@ -88,6 +89,29 @@
         @media (max-width: 768px) {
             .table-responsive { overflow-x: auto; }
         }
+
+        /* Notification card-view styles */
+        .notif-card .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.25rem;
+        }
+        .notif-card .card-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--tblr-secondary-color);
+            letter-spacing: 0.03em;
+        }
+        .notif-card .card-value {
+            font-size: 0.875rem;
+        }
+        .notif-card .msg-preview {
+            font-size: 0.75rem;
+            color: var(--tblr-secondary-color);
+            font-style: italic;
+            margin-top: 0.25rem;
+        }
     </style>
 
     <!-- Shared team color utilities -->
@@ -114,7 +138,7 @@
                         </div>
                         <div class="col-auto ms-auto d-print-none">
                             <div class="btn-list">
-                                <button class="btn btn-primary admin-only" id="sendTestSMS">
+                                <button class="btn btn-primary admin-only" id="sendTestSMS" style="min-height: 44px;">
                                     <i class="ti ti-send me-2"></i>
                                     Send Test SMS
                                 </button>
@@ -129,7 +153,7 @@
                 <div class="container-xl">
                     <!-- Stats Cards -->
                     <div class="row row-deck row-cards mb-4">
-                        <div class="col-sm-6 col-lg-3">
+                        <div class="col-6 col-lg-3">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -147,7 +171,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 col-lg-3">
+                        <div class="col-6 col-lg-3">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -165,7 +189,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 col-lg-3">
+                        <div class="col-6 col-lg-3">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -185,7 +209,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 col-lg-3">
+                        <div class="col-6 col-lg-3">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -283,31 +307,44 @@
                                         <i class="ti ti-history me-2"></i>
                                         Notification History
                                     </h3>
-                                    <div class="card-actions">
+                                    <div class="card-actions d-flex align-items-center gap-2">
+                                        <div class="btn-group" role="group" aria-label="View toggle">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary active" data-notif-view="table" onclick="toggleNotifView('table')">
+                                                <i class="ti ti-table"></i> Table
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" data-notif-view="cards" onclick="toggleNotifView('cards')">
+                                                <i class="ti ti-layout-cards"></i> Cards
+                                            </button>
+                                        </div>
                                         <button class="btn btn-sm btn-outline-primary" id="refreshHistory">
                                             <i class="ti ti-refresh"></i>
                                             Refresh
                                         </button>
                                     </div>
                                 </div>
-                                <div class="table-responsive">
-                                    <table class="table card-table table-vcenter" id="notificationTable">
-                                        <thead>
-                                            <tr>
-                                                <th>Timestamp</th>
-                                                <th>Recipient</th>
-                                                <th>Phone</th>
-                                                <th>Status</th>
-                                                <th>Twilio SID</th>
-                                                <th class="w-1">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="historyTableBody">
-                                            <tr>
-                                                <td colspan="6" class="text-center text-muted">Loading notification history...</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                                <div id="notifTableView">
+                                    <div class="table-responsive">
+                                        <table class="table card-table table-vcenter" id="notificationTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>Timestamp</th>
+                                                    <th>Recipient</th>
+                                                    <th>Phone</th>
+                                                    <th>Status</th>
+                                                    <th>Twilio SID</th>
+                                                    <th class="w-1">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="historyTableBody">
+                                                <tr>
+                                                    <td colspan="6" class="text-center text-muted">Loading notification history...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div id="notifCardView" style="display:none;" class="p-3">
+                                    <div class="row g-3" id="notifCardContainer"></div>
                                 </div>
                                 <div class="card-footer d-flex align-items-center">
                                     <p class="m-0 text-muted" id="paginationInfo">
@@ -731,6 +768,12 @@
                     pagination.has_next
                 );
 
+                // If card view is active, re-render cards from updated table
+                var cardEl = document.getElementById('notifCardView');
+                if (cardEl && cardEl.style.display !== 'none') {
+                    renderNotifCards();
+                }
+
             } catch (error) {
                 console.error('Error loading history:', error);
                 const tbody = document.getElementById('historyTableBody');
@@ -957,11 +1000,63 @@ Your shift lasts {duration}. Thank you for being available!`;
             document.getElementById('smsCount').textContent = `(${smsCount} SMS)`;
         }
 
+        // Card-view toggle for notification log
+        function toggleNotifView(view) {
+            var tableEl = document.getElementById('notifTableView');
+            var cardEl = document.getElementById('notifCardView');
+            var btns = document.querySelectorAll('[data-notif-view]');
+            btns.forEach(function(b) { b.classList.toggle('active', b.dataset.notifView === view); });
+            if (view === 'table') {
+                tableEl.style.display = '';
+                cardEl.style.display = 'none';
+            } else {
+                tableEl.style.display = 'none';
+                cardEl.style.display = '';
+                renderNotifCards();
+            }
+            try { localStorage.setItem('wof-notifications-view', view); } catch(e) {}
+        }
+
+        function renderNotifCards() {
+            var container = document.getElementById('notifCardContainer');
+            var rows = document.querySelectorAll('#notifTableView tbody tr');
+            var html = '';
+            rows.forEach(function(row) {
+                var cells = row.querySelectorAll('td');
+                if (cells.length >= 5) {
+                    // cells: 0=Timestamp, 1=Recipient, 2=Phone, 3=Status, 4=Twilio SID, 5=Actions
+                    html += '<div class="col-12">' +
+                        '<div class="card notif-card mb-0">' +
+                        '<div class="card-body py-2 px-3">' +
+                        '<div class="card-row">' +
+                        '<div><span class="card-label">Date</span><div class="card-value">' + cells[0].textContent + '</div></div>' +
+                        cells[3].innerHTML +
+                        '</div>' +
+                        '<div class="card-row">' +
+                        '<div><span class="card-label">Recipient</span><div class="card-value">' + cells[1].textContent + '</div></div>' +
+                        '<div class="text-muted" style="font-size:0.75rem;">' + cells[2].textContent + '</div>' +
+                        '</div>' +
+                        (cells[4] && cells[4].textContent.trim() !== '-' ?
+                            '<div class="msg-preview">' + cells[4].innerHTML + '</div>' : '') +
+                        '</div></div></div>';
+                }
+            });
+            if (!html) {
+                html = '<div class="col-12 text-center text-muted py-3">No notifications to display</div>';
+            }
+            container.innerHTML = html;
+        }
+
         // Main data loading function (called after auth check)
         async function loadNotificationsData() {
             await loadTemplate();
             await loadStats();
             await loadHistory();
+            // Restore saved view preference after table is populated
+            var savedView = localStorage.getItem('wof-notifications-view');
+            if (savedView === 'cards') {
+                toggleNotifView('cards');
+            }
         }
 
         // Authentication guard - FIRST thing to execute on page load
