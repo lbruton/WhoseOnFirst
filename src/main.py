@@ -18,6 +18,9 @@ from fastapi.responses import FileResponse
 from src.api.routes import team_members, shifts, schedules, notifications, auth, settings, schedule_overrides, admin
 from src.api.routes.version import router as version_router
 from src.scheduler import get_schedule_manager
+from src.models.database import SessionLocal
+from src.models.user import User, UserRole
+from src.auth.utils import hash_password
 
 
 # Configure logging
@@ -39,6 +42,23 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Starting WhoseOnFirst API...")
+
+    # Seed default admin user on first boot (empty DB)
+    try:
+        db = SessionLocal()
+        user_count = db.query(User).count()
+        if user_count == 0:
+            default_admin = User(
+                username="admin",
+                password_hash=hash_password("Admin123!"),
+                role=UserRole.ADMIN,
+            )
+            db.add(default_admin)
+            db.commit()
+            logger.info("Created default admin user (first boot — change password after login)")
+        db.close()
+    except Exception as e:
+        logger.warning("Could not seed default admin: %s", str(e))
 
     # Initialize and start the scheduler
     try:

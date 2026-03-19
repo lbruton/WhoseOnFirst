@@ -31,10 +31,22 @@ Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs
 
 ---
 
+## DocVault — Project Documentation
+
+Technical documentation lives in **DocVault** at `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/`. Read relevant pages before discussing architecture or planning changes.
+
+Key pages: `Overview.md`, Issues directory.
+
+```
+Read /Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/Overview.md
+```
+
+When making changes that affect documented behavior, run `/vault-update` before pushing.
+
 ## Documentation Hierarchy
 
 ```text
-LINEAR (Active Work)
+DocVault (Source of Truth)
   ↓ references
 /docs/planning/PRD.md (Living Requirements)
   ↓ informs

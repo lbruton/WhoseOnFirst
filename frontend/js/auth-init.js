@@ -36,8 +36,8 @@
             if (usernameEl) usernameEl.textContent = user.username;
             if (roleEl) roleEl.textContent = user.role === 'admin' ? 'Administrator' : 'Viewer';
             if (roleIconEl) {
-                var icon = roleIconEl.querySelector('i');
-                if (icon) icon.className = user.role === 'admin' ? 'ti ti-shield-check' : 'ti ti-eye';
+                roleIconEl.src = user.role === 'admin' ? '/assets/img/avatar-admin.svg' : '/assets/img/avatar-viewer.svg';
+                roleIconEl.alt = user.role === 'admin' ? 'Admin' : 'Viewer';
             }
 
             // Hide admin-only elements for viewers

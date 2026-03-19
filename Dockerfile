@@ -64,6 +64,7 @@ COPY --chown=whoseonfirst:root src/ /app/src/
 COPY --chown=whoseonfirst:root frontend/ /app/frontend/
 COPY --chown=whoseonfirst:root alembic/ /app/alembic/
 COPY --chown=whoseonfirst:root alembic.ini /app/
+COPY --chown=whoseonfirst:root VERSION /app/
 
 # Copy and setup entrypoint script
 COPY --chown=whoseonfirst:root scripts/docker-entrypoint.sh /app/

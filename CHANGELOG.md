@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2026-03-18
+
+### Added
+
+- **Mobile/Tablet UI Redesign (WHO-39)** — Progressive enhancement for all 8 user-facing pages
+  - Offcanvas sidebar navigation on mobile (hamburger toggle below 992px)
+  - Team members page: card grid replaced with sortable vertical list using drag handles (fixes touch scroll hijack)
+  - Card-view toggle on Notifications, Shifts, and Schedule Overrides tables (localStorage-persisted)
+  - Responsive breakpoints (375px / 576px / 768px / 1024px) across all pages
+  - 44px minimum touch targets on all interactive elements (WCAG 2.5.8)
+  - Light mode contrast: #d5dce6 page background with elevated white cards
+
+- **App Versioning System** — `VERSION` file in repo root, `GET /api/v1/version` endpoint, sidebar footer fetches dynamically
+
+- **Brand Kit Integration** — New logo (green rounded square with person + gold "1ST" badge), role-specific avatars (admin/viewer), updated login page
+
+- **Default Admin Seeding** — Fresh deployments auto-create admin user on first boot (empty DB only)
+
+- **Mobile File Upload** — Admin page shows tap-to-browse file input on mobile (drag-drop zone stays on desktop)
+
+### Changed
+
+- Login page uses brand icon-logo.svg (green) on blue gradient background
+- Sidebar active nav item uses subtle background highlight instead of green right border
+- GitHub links updated from Lonnie-Bruton org to lbruton personal
+- Service worker cache bumped to v3 with new asset paths
+
+### Fixed
+
+- Sortable.js on touch devices no longer hijacks scroll gestures (handle option + delayOnTouchOnly)
+- Dark mode issues fixed on 7 pages (stat cards, status badges, alert-info, code blocks, drop zones)
+- Dead `.logo-svg` CSS removed from all pages
+
+---
+
 ## [Unreleased]
 
 ### Fixed
