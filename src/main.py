@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 
 # Import routers
 from src.api.routes import team_members, shifts, schedules, notifications, auth, settings, schedule_overrides, admin
+from src.api.routes.version import router as version_router
 from src.scheduler import get_schedule_manager
 
 
@@ -168,6 +169,7 @@ app.include_router(
     prefix="/api/v1/admin",
     tags=["admin"]
 )
+app.include_router(version_router)
 
 # Mount static files (frontend) - MUST be after API routes to avoid conflicts
 # Serve frontend from the frontend directory
