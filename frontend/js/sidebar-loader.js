@@ -59,6 +59,29 @@
         // This allows page-specific scripts to initialize after sidebar is ready
         window.dispatchEvent(new CustomEvent('sidebarLoaded'));
 
+        // Fetch and display app version
+        fetch('/api/v1/version')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var el = document.getElementById('appVersion');
+                if (el) el.textContent = 'v' + data.version;
+            })
+            .catch(function() {
+                var el = document.getElementById('appVersion');
+                if (el) el.textContent = 'v?';
+            });
+
+        // Easter egg: Shift-click logo opens the inspiration
+        var logo = document.getElementById('appLogo');
+        if (logo) {
+            logo.addEventListener('click', function(e) {
+                if (e.shiftKey) {
+                    e.preventDefault();
+                    window.open('https://www.youtube.com/watch?v=sYOUFGfK4bU', 'WhosOnFirst', 'width=800,height=600,menubar=no,toolbar=no,location=no,status=no');
+                }
+            });
+        }
+
     } catch (error) {
         console.error('Error loading sidebar:', error);
     }

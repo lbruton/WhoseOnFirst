@@ -1,21 +1,35 @@
 <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
-    <div class="container-fluid" style="display: flex; flex-direction: column; height: 100vh;">
+    <style>
+        .navbar-vertical .nav-item.active > .nav-link {
+            color: #f1f5f9 !important;
+            background: rgba(255,255,255,0.1) !important;
+            border-right: none !important;
+            border-left: none !important;
+        }
+        .navbar-vertical .navbar-nav .nav-link {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+        .navbar-vertical .navbar-nav .nav-link:hover {
+            background: rgba(255,255,255,0.05) !important;
+        }
+        .navbar-brand-image {
+            height: 42px;
+            width: auto;
+        }
+    </style>
+    <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu" aria-controls="sidebar-menu" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
         <h1 class="navbar-brand navbar-brand-autodark">
             <a href="/" id="appLogo">
-                <svg class="logo-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="50" cy="50" r="45" fill="#206bc4" stroke="#ffffff" stroke-width="3"/>
-                    <circle cx="50" cy="50" r="35" fill="none" stroke="#ffffff" stroke-width="2"/>
-                    <line x1="50" y1="50" x2="50" y2="25" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
-                    <line x1="50" y1="50" x2="65" y2="50" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
-                    <circle cx="50" cy="70" r="5" fill="#fab005"/>
-                    <path d="M 50 75 L 45 85 M 50 75 L 55 85 M 50 75 L 50 80" stroke="#fab005" stroke-width="2" stroke-linecap="round"/>
-                    <circle cx="50" cy="50" r="3" fill="#fab005"/>
-                </svg>
-                <span class="navbar-brand-text">WhoseOnFirst</span>
+                <img src="/assets/img/banner-logo-compact.svg" alt="WhoseOnFirst" height="42" class="navbar-brand-image">
             </a>
         </h1>
 
-        <div class="navbar-collapse" style="flex: 1; overflow-y: auto;">
+        <div class="collapse navbar-collapse" id="sidebar-menu">
             <ul class="navbar-nav pt-lg-3">
                 <!-- User Info Badge -->
                 <li class="nav-item mb-3" style="opacity: 0.7;">
@@ -105,13 +119,13 @@
             </ul>
         </div>
 
-        <!-- Footer anchored to bottom -->
+        <!-- Footer stays outside collapse so it's always visible -->
         <div class="navbar-footer" style="margin-top: auto; padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
             <div style="text-align: center; font-size: 0.75rem;">
                 <div style="margin-bottom: 0.5rem;">
                     <a href="https://github.com/Lonnie-Bruton/WhoseOnFirst/blob/main/CHANGELOG.md" class="text-white-50" target="_blank" style="text-decoration: none;">
                         <i class="ti ti-brand-github"></i>
-                        WhoseOnFirst v1.5.0
+                        WhoseOnFirst <span id="appVersion">v...</span>
                     </a>
                 </div>
                 <div>
