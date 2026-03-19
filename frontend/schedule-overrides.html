@@ -104,6 +104,38 @@
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
         }
+        [data-bs-theme="dark"] .status-active {
+            background-color: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+        [data-bs-theme="dark"] .status-cancelled {
+            background-color: rgba(255, 255, 255, 0.08);
+            color: var(--tblr-secondary-color);
+        }
+        [data-bs-theme="dark"] .status-completed {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #93c5fd;
+        }
+
+        /* Touch targets */
+        .btn-ghost-danger {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        .card-actions .btn {
+            min-height: 44px;
+        }
+        .page-header .btn {
+            min-height: 44px;
+        }
+        .modal-footer .btn {
+            min-height: 44px;
+        }
+        .pagination .page-link {
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
 
         @media (max-width: 768px) {
             .table-responsive { overflow-x: auto; }

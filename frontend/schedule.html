@@ -90,6 +90,15 @@
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
         }
+        [data-bs-theme="dark"] .day-card-header {
+            color: var(--tblr-secondary-color);
+        }
+
+        /* Touch targets for form buttons */
+        .btn.admin-only,
+        #exportSchedulesBtn {
+            min-height: 44px;
+        }
 
         /* Mobile: 14-day preview reflow */
         @media (max-width: 768px) {

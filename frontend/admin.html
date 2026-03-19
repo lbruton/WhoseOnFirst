@@ -40,6 +40,21 @@
             border-color: var(--tblr-border-color);
             color: var(--tblr-body-color);
         }
+        [data-bs-theme="dark"] .import-drop-zone {
+            border-color: var(--tblr-border-color);
+        }
+        [data-bs-theme="dark"] .import-drop-zone.dragover {
+            border-color: #4da3ff;
+            background: rgba(77, 163, 255, 0.05);
+        }
+
+        /* Touch targets for action buttons */
+        .card-footer .btn {
+            min-height: 44px;
+        }
+        .modal-footer .btn {
+            min-height: 44px;
+        }
     </style>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#206bc4">

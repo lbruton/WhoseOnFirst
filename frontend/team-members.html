@@ -203,6 +203,23 @@
             color: #34d399;
             border: 1px solid rgba(16, 185, 129, 0.3);
         }
+        [data-bs-theme="dark"] #emptyState {
+            background: var(--tblr-bg-surface) !important;
+            color: var(--tblr-body-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+        }
+        [data-bs-theme="dark"] #deleteMemberModal .card {
+            background-color: var(--tblr-secondary-bg) !important;
+            border-color: var(--tblr-border-color) !important;
+        }
+
+        /* Touch targets for modal and header buttons */
+        .modal-footer .btn {
+            min-height: 44px;
+        }
+        .page-header .btn {
+            min-height: 44px;
+        }
 
         @media (max-width: 768px) {
             .table-responsive { overflow-x: auto; }
