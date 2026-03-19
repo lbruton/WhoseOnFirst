@@ -138,7 +138,7 @@
   - _Requirements: REQ-3 (AC 1, 2, 6), REQ-4 (AC 1)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Enhance responsive CSS on `frontend/notifications.html`. (1) Add `col-6` to the 4 stat cards for 2-per-row at xs. (2) Add card-view toggle for the notification log data table — same pattern as schedule-overrides (Task 5): button group visible below 768px, Table/Cards toggle, localStorage persistence with key `wof-notifications-view`. (3) Verify the SMS template editor section lays out cleanly on mobile. (4) Ensure the Send Test SMS button meets 44px touch target. (5) Dark mode compatibility. | Restrictions: Same card-view toggle pattern as Task 5. Do NOT change notification data fetching or table rendering logic. | Success: Notifications page works at 375px/768px/1024px. Card toggle works. Stat cards 2-per-row on mobile. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [-] 7. Shifts page responsive + card-view toggle `ui:true` (IN PROGRESS)
+- [x] 7. Shifts page responsive + card-view toggle `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/shifts.html`:
     - Add card-view toggle for the shifts configuration table
