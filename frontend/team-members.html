@@ -19,9 +19,9 @@
             height: 32px;
         }
 
-        /* Page background for better card separation */
+        /* Page background for card contrast */
         .page-body {
-            background-color: #f1f5f9;
+            background-color: #d5dce6;
         }
 
         /* Info alert styling */
@@ -69,38 +69,100 @@
         .team-color-15 { background-color: #c2410c; color: white; } /* Rust */
         .team-color-16 { background-color: #7e22ce; color: white; } /* Violet */
 
-        /* Member cards - enhanced shadows and white background */
-        .member-card {
-            transition: all 0.2s;
-            background: white;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        .member-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-        .member-card.draggable {
-            cursor: move;
-        }
-        .member-card.sortable-ghost {
-            opacity: 0.5;
-        }
-        .member-card.sortable-drag {
-            transform: rotate(2deg);
+        /* Card contrast on gray page background */
+        .card {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
         }
 
-        /* Rotation number badge - high contrast */
+        /* Team member list rows */
+        .member-row {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            gap: 0.75rem;
+            min-height: 64px;
+            transition: background 0.15s;
+        }
+
+        /* Alternating row backgrounds */
+        .list-group-item:nth-child(odd) {
+            background-color: #ffffff;
+        }
+        .list-group-item:nth-child(even) {
+            background-color: #f1f5f9;
+        }
+        .list-group-item {
+            border-color: #e2e8f0;
+        }
+
+        /* Drag handle */
+        .drag-handle {
+            cursor: grab;
+            padding: 8px;
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            opacity: 0.4;
+            touch-action: none;
+        }
+        .drag-handle:hover {
+            opacity: 0.8;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        /* Sortable drag states */
+        .sortable-ghost {
+            opacity: 0.3;
+        }
+        .sortable-drag {
+            transform: rotate(2deg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Rotation number badge */
         .rotation-badge {
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-            color: white;
-            font-size: 1.5rem;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-weight: 700;
-            padding: 0.6rem 0.9rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
-            min-width: 50px;
-            text-align: center;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+            background: #ecfdf5;
+            color: #059669;
+            border: 1px solid #a7f3d0;
+        }
+
+        /* Action buttons */
+        .member-row .action-btns {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        .member-row .action-btns .btn {
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Filter tabs */
+        .filter-tabs .nav-link {
+            min-height: 44px;
+            font-size: 0.85rem;
+        }
+        .filter-tabs .nav-link.active {
+            border-bottom: 2px solid var(--tblr-primary) !important;
+            font-weight: 600;
         }
 
         /* Avatar styling */
@@ -108,11 +170,6 @@
             font-size: 1.1rem;
             font-weight: 600;
             letter-spacing: 0.5px;
-        }
-
-        .logo-svg {
-            width: 32px;
-            height: 32px;
         }
 
         #saveOrderBtn {
@@ -129,9 +186,22 @@
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
-            background-color: var(--tblr-bg-surface);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
             border-color: var(--tblr-border-color);
+            background-color: var(--tblr-bg-surface);
             color: var(--tblr-body-color);
+        }
+        [data-bs-theme="dark"] .list-group-item {
+            border-color: rgba(255, 255, 255, 0.06);
+            background-color: transparent;
+        }
+        [data-bs-theme="dark"] .list-group-item:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        [data-bs-theme="dark"] .rotation-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
 
         @media (max-width: 768px) {
@@ -160,15 +230,6 @@
                             <div class="page-pretitle">Management</div>
                             <h2 class="page-title">Team Members</h2>
                         </div>
-                    </div>
-                    <div class="row g-2 align-items-center mt-2">
-                        <div class="col-auto">
-                            <select class="form-select" id="filterSelect" onchange="applyFilter()">
-                                <option value="active" selected>Active Members</option>
-                                <option value="inactive">Inactive Members</option>
-                            </select>
-                        </div>
-                        <div class="col"></div>
                         <div class="col-auto">
                             <button class="btn btn-ghost-primary admin-only me-2" data-bs-toggle="modal" data-bs-target="#escalationModal" title="Configure escalation contacts">
                                 <i class="ti ti-alert-triangle me-2"></i>
@@ -202,24 +263,39 @@
                         </button>
                     </div>
 
-                    <!-- Drag-and-Drop Hint -->
-                    <div class="alert alert-info mb-4" id="dragHint" style="display:none;">
-                        <div class="d-flex">
-                            <div>
-                                <i class="ti ti-arrows-move me-2"></i>
-                            </div>
-                            <div>
-                                <h4 class="alert-title">Tips</h4>
-                                <div class="text-muted">
-                                    Drag and drop members to change their rotation order. Click "Save Order" when done.
-                                    Hold <kbd style="background: #1e40af; color: white; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.85rem;">Shift</kbd> + click "Deactivate" to permanently delete a member.
+                    <!-- Team Members Card -->
+                    <div class="card mb-4" id="teamMembersCard">
+                        <div class="card-header">
+                            <ul class="nav nav-tabs card-header-tabs filter-tabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link active" href="#" data-filter="active" role="tab" id="filterActive">Active (<span id="activeCount">0</span>)</a>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <a class="nav-link" href="#" data-filter="inactive" role="tab" id="filterInactive">Inactive (<span id="inactiveCount">0</span>)</a>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-body p-0">
+                            <!-- Drag-and-Drop Hint -->
+                            <div class="alert alert-info mx-3 mt-3 mb-2" id="dragHint" style="display:none;">
+                                <div class="d-flex">
+                                    <div>
+                                        <i class="ti ti-grip-vertical me-2" style="opacity: 0.5;"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="alert-title">Tips</h4>
+                                        <div class="text-muted">
+                                            Drag the grip icon to reorder rotation. Click "Save Order" when done.
+                                            Hold <kbd style="background: #1e40af; color: white; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.85rem;">Shift</kbd> + click "Deactivate" to permanently delete a member.
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+
+                            <!-- Sortable member list -->
+                            <div class="list-group list-group-flush" id="membersContainer"></div>
                         </div>
                     </div>
-
-                    <!-- Member Cards -->
-                    <div class="row row-cards" id="membersContainer"></div>
                 </div>
             </div>
         </div>
@@ -535,6 +611,14 @@
             const dragHint = document.getElementById('dragHint');
             const emptyState = document.getElementById('emptyState');
 
+            // Update filter tab counts
+            const activeCount = allMembers.filter(m => m.is_active).length;
+            const inactiveCount = allMembers.filter(m => !m.is_active).length;
+            var activeCountEl = document.getElementById('activeCount');
+            var inactiveCountEl = document.getElementById('inactiveCount');
+            if (activeCountEl) activeCountEl.textContent = activeCount;
+            if (inactiveCountEl) inactiveCountEl.textContent = inactiveCount;
+
             // Filter members based on current filter
             const filteredMembers = allMembers.filter(member => {
                 if (currentFilter === 'active') return member.is_active;
@@ -550,45 +634,33 @@
             }
 
             emptyState.style.display = 'none';
-            // Only show drag hint for active members with 2+ members
-            dragHint.style.display = (currentFilter === 'active' && filteredMembers.length > 1) ? 'block' : 'none';
+            // Only show drag hint for active members with 2+ members and admin role
+            const isAdmin = currentUser && currentUser.role !== 'viewer';
+            dragHint.style.display = (currentFilter === 'active' && filteredMembers.length > 1 && isAdmin) ? 'block' : 'none';
 
             container.innerHTML = filteredMembers.map((member, index) => `
-                <div class="col-md-6 col-lg-4" data-member-id="${member.id}">
-                    <div class="card member-card ${currentFilter === 'active' ? 'draggable' : ''}" style="position: relative;">
-                        ${member.is_active && member.rotation_order !== null ? `
-                            <div style="position: absolute; top: 16px; right: 16px; z-index: 10;">
-                                <div class="rotation-badge">
-                                    ${member.rotation_order + 1}
-                                </div>
-                            </div>
-                        ` : ''}
-                        <div class="card-body" style="padding: 1.5rem;">
-                            <div class="d-flex align-items-center mb-3">
-                                <span class="avatar avatar-lg me-3 ${getTeamColor(member.id, activeMembers)} avatar-initials">
-                                    ${getInitials(member.name)}
-                                </span>
-                                <div class="flex-fill">
-                                    <h3 class="card-title mb-1" style="font-size: 1.1rem; font-weight: 600;">
-                                        ${escapeHtml(member.name)}
-                                    </h3>
-                                    <div class="text-muted" style="font-size: 0.875rem;">
-                                        ${escapeHtml(member.phone)}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="btn-list mt-2">
-                                <button class="btn btn-sm btn-outline-primary admin-only" onclick="editMember(${member.id})" style="font-weight: 500;">
-                                    <i class="ti ti-edit"></i> Edit
-                                </button>
-                                <button class="btn btn-sm btn-outline-${member.is_active ? 'danger' : 'success'} admin-only"
-                                        onclick="toggleActive(event, ${member.id}, ${member.is_active}, '${escapeHtml(member.name)}', '${escapeHtml(member.phone)}')" style="font-weight: 500;">
-                                    <i class="ti ti-user-${member.is_active ? 'off' : 'check'}"></i>
-                                    ${member.is_active ? 'Deactivate' : 'Activate'}
-                                </button>
-                            </div>
-                        </div>
+                <div class="list-group-item member-row d-flex align-items-center py-3 px-3" data-member-id="${member.id}">
+                    ${currentFilter === 'active' && currentUser && currentUser.role !== 'viewer' ?
+                        '<div class="drag-handle admin-only"><i class="ti ti-grip-vertical text-muted" style="font-size: 1.2rem;"></i></div>' : ''}
+                    <span class="avatar avatar-md me-3 ${getTeamColor(member.id, activeMembers)} avatar-initials">
+                        ${getInitials(member.name)}
+                    </span>
+                    <div class="flex-fill" style="min-width: 0;">
+                        <div class="fw-bold" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(member.name)}</div>
+                        <div class="text-muted small">${escapeHtml(member.phone)}</div>
                     </div>
+                    ${member.is_active && member.rotation_order !== null ?
+                        '<div class="rotation-badge me-3">' + (member.rotation_order + 1) + '</div>' : ''}
+                    ${currentUser && currentUser.role !== 'viewer' ? '<div class="action-btns">' +
+                        '<button class="btn btn-sm btn-outline-primary admin-only" onclick="editMember(' + member.id + ')" title="Edit">' +
+                            '<i class="ti ti-pencil"></i>' +
+                        '</button>' +
+                        '<button class="btn btn-sm btn-outline-' + (member.is_active ? 'warning' : 'success') + ' admin-only" ' +
+                                'onclick="toggleActive(event, ' + member.id + ', ' + member.is_active + ', \'' + escapeHtml(member.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(member.phone).replace(/'/g, "\\'") + '\')" ' +
+                                'title="' + (member.is_active ? 'Deactivate' : 'Activate') + '">' +
+                            '<i class="ti ti-user-' + (member.is_active ? 'minus' : 'plus') + '"></i>' +
+                        '</button>' +
+                    '</div>' : ''}
                 </div>
             `).join('');
 
@@ -606,8 +678,12 @@
 
             sortableInstance = Sortable.create(container, {
                 animation: 150,
+                handle: '.drag-handle',
                 ghostClass: 'sortable-ghost',
                 dragClass: 'sortable-drag',
+                delayOnTouchOnly: true,
+                delay: 100,
+                touchStartThreshold: 5,
                 onEnd: function() {
                     orderChanged = true;
                     document.getElementById('saveOrderBtn').style.display = 'block';
@@ -889,11 +965,28 @@
             }
         });
 
-        // Filter
-        function applyFilter() {
-            currentFilter = document.getElementById('filterSelect').value;
+        // Filter tabs
+        function applyFilter(filter) {
+            currentFilter = filter || 'active';
+            // Update tab active state
+            document.querySelectorAll('.filter-tabs .nav-link').forEach(function(tab) {
+                tab.classList.toggle('active', tab.getAttribute('data-filter') === currentFilter);
+            });
             renderMembers();
+            // Hide save button when switching filters
+            document.getElementById('saveOrderBtn').style.display = 'none';
+            orderChanged = false;
         }
+
+        // Bind filter tab clicks
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.filter-tabs .nav-link').forEach(function(tab) {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    applyFilter(this.getAttribute('data-filter'));
+                });
+            });
+        });
 
         // Escalation Contacts
         // Load escalation config when modal is opened
@@ -1106,7 +1199,8 @@
         // Utility Functions
         function showLoading(show) {
             document.getElementById('loadingState').style.display = show ? 'block' : 'none';
-            document.getElementById('membersContainer').style.display = show ? 'none' : '';
+            var teamCard = document.getElementById('teamMembersCard');
+            if (teamCard) teamCard.style.display = show ? 'none' : '';
         }
 
         function showSuccess(message) {
