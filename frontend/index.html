@@ -15,15 +15,9 @@
     <script src="/js/auth-init.js" defer></script>
 
     <style>
-        /* Logo SVG styling */
-        .logo-svg {
-            width: 32px;
-            height: 32px;
-        }
-
         /* Page background for better card separation */
         .page-body {
-            background-color: #f1f5f9;
+            background-color: #d5dce6;
         }
 
         /* Team Member Colors - 16 unique WCAG AA compliant colors */
@@ -127,17 +121,6 @@
             border-bottom: 2px solid #e9ecef;
         }
         
-        /* Custom Logo Styles */
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .logo-svg {
-            width: 32px;
-            height: 32px;
-        }
-        
         /* Enhanced Cards with depth */
         .stat-card {
             transition: all 0.2s;
@@ -152,8 +135,8 @@
 
         .card {
             background: white;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         /* Legend */
@@ -181,6 +164,7 @@
         [data-bs-theme="dark"] .card {
             background-color: var(--tblr-bg-surface);
             border-color: var(--tblr-border-color);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
             color: var(--tblr-body-color);
         }
         /* Calendar grid: background serves as the gap/border color */
@@ -235,6 +219,15 @@
                 margin-bottom: 0.5rem;
             }
         }
+
+        /* Touch targets for calendar navigation buttons */
+        .card-actions .btn {
+            min-height: 44px;
+            min-width: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 
     <!-- Shared team color utilities -->
@@ -269,7 +262,7 @@
                 <div class="container-xl">
                     <!-- Stats Cards -->
                     <div class="row row-deck row-cards mb-4">
-                        <div class="col-sm-6 col-lg-4">
+                        <div class="col-6 col-lg-4">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -287,7 +280,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-sm-6 col-lg-8">
+                        <div class="col-6 col-lg-8">
                             <div class="card stat-card">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center mb-3">

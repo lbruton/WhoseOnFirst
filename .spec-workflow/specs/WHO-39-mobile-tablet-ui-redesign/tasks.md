@@ -74,7 +74,7 @@
   - _Requirements: REQ-5 (AC 1, 2, 4)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Python Backend Developer | Task: Create a VERSION file in the project root containing `1.6.0`. Create `src/api/routes/version.py` with a FastAPI GET endpoint at `/api/v1/version` that reads the VERSION file and returns `{"version": "X.Y.Z"}`. If the file is missing, return `{"version": "unknown"}`. Register the router in `src/main.py` following the pattern used by other routes (see `src/api/routes/admin.py`). Create `tests/test_version_endpoint.py` testing: (a) returns correct version, (b) handles missing file gracefully. Run tests with `pytest tests/test_version_endpoint.py -v`. | Restrictions: No caching of version — read file on each request. No authentication required on this endpoint. Follow existing FastAPI route patterns exactly. | Success: `curl localhost:8000/api/v1/version` returns `{"version":"1.6.0"}`. Tests pass. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [-] 2. Sidebar offcanvas toggle and version fetch `ui:true`
+- [x] 2. Sidebar offcanvas toggle and version fetch `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/components/sidebar.html`:
     - Add `collapse` class to `navbar-collapse` div
@@ -104,7 +104,7 @@
   - _Requirements: REQ-2 (all ACs), REQ-4 (AC 1, 2)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Redesign the team-members page from a card grid to a vertical sortable list. In `frontend/team-members.html`: (1) Replace the `<div class="row row-cards" id="membersContainer">` and its `col-md-6 col-lg-4` card children with a `<div class="list-group" id="membersContainer">` containing `list-group-item` rows. Each row layout: drag-handle grip icon (`.drag-handle.admin-only`) on left, avatar with team color, name+phone in flex-fill div, rotation badge, then Edit/Deactivate buttons. (2) Update the `initSortable()` function config to add `handle: '.drag-handle'`, `delayOnTouchOnly: true`, `delay: 100`, `touchStartThreshold: 5`. (3) Update CSS: remove `.member-card` hover transform and card shadow styles, add `.member-row` hover background highlight, `.drag-handle` grab cursor, `.drag-handle:active` grabbing cursor. (4) Add `[data-bs-theme="dark"]` variants for list hover and drag states. (5) Ensure 44px minimum touch targets on buttons with 8px spacing between them. Source visual design from the approved prototype file at `.spec-workflow/specs/WHO-39-mobile-tablet-ui-redesign/artifacts/playground.html`. | Restrictions: Do NOT change the save order logic, modal forms, or API calls. Preserve all existing JS functions (renderMembers, saveRotationOrder, etc.) — only change the HTML template and Sortable config within them. Keep the drag hint alert. Test drag on desktop (mouse) and mobile emulation (touch). | Success: Team members display as a vertical list at all screen widths. Dragging only initiates from the grip icon. Scrolling works normally on touch devices. Save order button appears after drag. Dark mode works. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [ ] 4. Dashboard (index.html) responsive CSS `ui:true`
+- [x] 4. Dashboard (index.html) responsive CSS `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/index.html`:
     - Verify escalation chain mobile stacking (existing `@media` at 768px)
@@ -127,7 +127,7 @@
   - _Requirements: REQ-3 (AC 1, 2, 7), REQ-4 (AC 1)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Enhance responsive CSS on schedule pages. In `frontend/schedule.html`: (1) The 14-day preview has `@media (max-width: 768px)` reflowing to 2 columns — add a second breakpoint at 576px reflowing to single column. (2) Verify form inputs (Start Date, Duration) stack cleanly on mobile. In `frontend/schedule-overrides.html`: (1) Add `col-6` to stat cards for 2-per-row at xs. (2) Add a card-view toggle for the overrides data table — use a button group (`d-md-none`) with Table/Cards options. When Cards is active, render each table row as a stacked card with key-value pairs. Toggle state persists via `localStorage.setItem('wof-overrides-view', 'cards')`. (3) Verify dark mode on all changes. | Restrictions: Reuse the same card-view toggle pattern across all table pages (consistent UI). Do NOT change table data fetching or API calls. | Success: Schedule pages work cleanly at 375px, 768px, 1024px. Card-view toggle works on overrides page. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [ ] 6. Notifications page responsive + card-view toggle `ui:true`
+- [-] 6. Notifications page responsive + card-view toggle `ui:true`
   - **Recommended Agent:** Claude
   - Modify `frontend/notifications.html`:
     - Stat cards: add `col-6` for xs (currently `col-sm-6 col-lg-3`)
@@ -138,7 +138,7 @@
   - _Requirements: REQ-3 (AC 1, 2, 6), REQ-4 (AC 1)_
   - _Prompt: Implement the task for spec WHO-39-mobile-tablet-ui-redesign, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Frontend Developer | Task: Enhance responsive CSS on `frontend/notifications.html`. (1) Add `col-6` to the 4 stat cards for 2-per-row at xs. (2) Add card-view toggle for the notification log data table — same pattern as schedule-overrides (Task 5): button group visible below 768px, Table/Cards toggle, localStorage persistence with key `wof-notifications-view`. (3) Verify the SMS template editor section lays out cleanly on mobile. (4) Ensure the Send Test SMS button meets 44px touch target. (5) Dark mode compatibility. | Restrictions: Same card-view toggle pattern as Task 5. Do NOT change notification data fetching or table rendering logic. | Success: Notifications page works at 375px/768px/1024px. Card toggle works. Stat cards 2-per-row on mobile. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x]._
 
-- [ ] 7. Shifts page responsive + card-view toggle `ui:true`
+- [-] 7. Shifts page responsive + card-view toggle `ui:true` (IN PROGRESS)
   - **Recommended Agent:** Claude
   - Modify `frontend/shifts.html`:
     - Add card-view toggle for the shifts configuration table
