@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="vaBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E1B4B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0F172A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="vaGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06B6D4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+    <filter id="neonGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dark rounded square -->
+  <rect x="10" y="10" width="180" height="180" rx="40" ry="40" fill="url(#vaBg)"/>
+  <!-- Subtle border glow -->
+  <rect x="10" y="10" width="180" height="180" rx="40" ry="40" fill="none" stroke="url(#vaGlow)" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Left person - dim outline -->
+  <circle cx="56" cy="78" r="11" fill="none" stroke="#475569" stroke-width="2"/>
+  <path d="M38 106 Q38 90 56 90 Q74 90 74 106" fill="none" stroke="#475569" stroke-width="2"/>
+
+  <!-- Right person - dim outline -->
+  <circle cx="144" cy="78" r="11" fill="none" stroke="#475569" stroke-width="2"/>
+  <path d="M126 106 Q126 90 144 90 Q162 90 162 106" fill="none" stroke="#475569" stroke-width="2"/>
+
+  <!-- Center person - neon glow highlight -->
+  <circle cx="100" cy="68" r="16" fill="none" stroke="url(#vaGlow)" stroke-width="2.5" filter="url(#softGlow)"/>
+  <circle cx="100" cy="68" r="16" fill="#06B6D4" opacity="0.15"/>
+  <circle cx="100" cy="68" r="16" fill="none" stroke="url(#vaGlow)" stroke-width="2.5"/>
+  <path d="M76 104 Q76 86 100 86 Q124 86 124 104" fill="none" stroke="url(#vaGlow)" stroke-width="2.5" filter="url(#neonGlow)"/>
+  <path d="M76 104 Q76 86 100 86 Q124 86 124 104" fill="#06B6D4" opacity="0.1"/>
+
+  <!-- Pulse ring around center person -->
+  <circle cx="100" cy="86" r="34" fill="none" stroke="#06B6D4" stroke-width="1" opacity="0.2"/>
+  <circle cx="100" cy="86" r="42" fill="none" stroke="#06B6D4" stroke-width="0.5" opacity="0.1"/>
+
+  <!-- Small diamond indicator above -->
+  <polygon points="100,40 106,48 100,56 94,48" fill="#06B6D4" filter="url(#neonGlow)"/>
+
+  <!-- "1" badge bottom right -->
+  <circle cx="150" cy="155" r="16" fill="url(#vaGlow)" opacity="0.9"/>
+  <text x="150" y="161" text-anchor="middle" font-family="'SF Pro Display', 'Segoe UI', Arial, sans-serif" font-weight="700" font-size="18" fill="white">1</text>
+
+  <!-- "WHO" text bottom left area -->
+  <text x="46" y="160" text-anchor="start" font-family="'SF Pro Display', 'Segoe UI', Arial, sans-serif" font-weight="600" font-size="14" fill="#94A3B8" letter-spacing="3">WHO</text>
+</svg>

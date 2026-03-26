@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bgGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#059669;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="spotGrad" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" style="stop-color:white;stop-opacity:0.2" />
+      <stop offset="100%" style="stop-color:white;stop-opacity:0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect x="10" y="10" width="180" height="180" rx="40" ry="40" fill="url(#bgGrad3)"/>
+
+  <!-- Subtle spotlight effect -->
+  <rect x="10" y="10" width="180" height="180" rx="40" ry="40" fill="url(#spotGrad)"/>
+
+  <!-- Three person outlines in back (the rotation/team) -->
+  <!-- Left person - faded -->
+  <circle cx="58" cy="82" r="12" fill="none" stroke="white" stroke-width="2" opacity="0.25"/>
+  <path d="M40 112 Q40 96 58 96 Q76 96 76 112" fill="none" stroke="white" stroke-width="2" opacity="0.25"/>
+
+  <!-- Right person - faded -->
+  <circle cx="142" cy="82" r="12" fill="none" stroke="white" stroke-width="2" opacity="0.25"/>
+  <path d="M124 112 Q124 96 142 96 Q160 96 160 112" fill="none" stroke="white" stroke-width="2" opacity="0.25"/>
+
+  <!-- Center person - solid/highlighted (the one "on first") -->
+  <circle cx="100" cy="72" r="18" fill="white"/>
+  <path d="M74 112 Q74 92 100 92 Q126 92 126 112" fill="white"/>
+
+  <!-- Upward pointer / crown element above center person -->
+  <polygon points="100,38 108,50 92,50" fill="#FCD34D"/>
+
+  <!-- "ON" text -->
+  <text x="100" y="152" text-anchor="middle" font-family="'SF Pro Display', 'Segoe UI', Arial, sans-serif" font-weight="800" font-size="28" fill="white" letter-spacing="4" opacity="0.9">ON</text>
+
+  <!-- Thin line separator -->
+  <line x1="70" y1="158" x2="130" y2="158" stroke="white" stroke-width="1" opacity="0.4"/>
+
+  <!-- "FIRST" text -->
+  <text x="100" y="176" text-anchor="middle" font-family="'SF Pro Display', 'Segoe UI', Arial, sans-serif" font-weight="300" font-size="16" fill="white" letter-spacing="6" opacity="0.7">FIRST</text>
+</svg>

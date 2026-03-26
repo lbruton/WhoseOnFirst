@@ -1,0 +1,22 @@
+{
+  "filePath": ".spec-workflow/specs/WHO-39-mobile-tablet-ui-redesign/design.md",
+  "currentVersion": 2,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-19T00:30:17.581Z",
+      "trigger": "initial",
+      "approvalId": "approval_1773880217570_75z4849my",
+      "approvalTitle": "Design: Mobile/Tablet UI Redesign (WHO-39)"
+    },
+    {
+      "version": 2,
+      "filename": "snapshot-002.json",
+      "timestamp": "2026-03-19T00:33:12.305Z",
+      "trigger": "approved",
+      "approvalId": "approval_1773880217570_75z4849my",
+      "approvalTitle": "Design: Mobile/Tablet UI Redesign (WHO-39)"
+    }
+  ]
+}

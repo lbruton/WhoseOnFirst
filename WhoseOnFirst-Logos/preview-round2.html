@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhoseOnFirst — Round 2: Spotlight Variants</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0F172A;
+    color: #E2E8F0;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    color: #F8FAFC;
+  }
+  .subtitle {
+    text-align: center;
+    color: #94A3B8;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+  }
+  .note {
+    text-align: center;
+    color: #64748B;
+    font-size: 0.8rem;
+    margin-bottom: 48px;
+    font-style: italic;
+  }
+
+  /* Original concept reference */
+  .original {
+    max-width: 400px;
+    margin: 0 auto 40px;
+    background: #1E293B;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    border: 1px solid #334155;
+    opacity: 0.7;
+  }
+  .original h3 {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: #64748B;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .original img { width: 100px; }
+
+  .divider {
+    max-width: 600px;
+    margin: 0 auto 40px;
+    border: none;
+    border-top: 1px solid #1E293B;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+    max-width: 1200px;
+    margin: 0 auto 48px;
+  }
+  .card {
+    background: #1E293B;
+    border-radius: 16px;
+    padding: 28px;
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid #334155;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    border-color: #475569;
+  }
+  .card h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #F1F5F9;
+  }
+  .card .tag {
+    display: inline-block;
+    background: #334155;
+    color: #94A3B8;
+    font-size: 0.65rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .logo-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 16px;
+    min-height: 160px;
+  }
+  .logo-wrap img {
+    width: 150px;
+    height: auto;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+  }
+  .desc {
+    color: #94A3B8;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  /* Background tests */
+  .bg-section {
+    max-width: 1200px;
+    margin: 0 auto 48px;
+  }
+  .bg-section h3 {
+    font-weight: 400;
+    font-size: 0.9rem;
+    color: #64748B;
+    margin-bottom: 16px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .bg-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .bg-cell {
+    width: 320px;
+    padding: 20px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .bg-cell.white { background: #FFFFFF; }
+  .bg-cell.light { background: #F1F5F9; }
+  .bg-cell.dark { background: #0F172A; border: 1px solid #1E293B; }
+  .bg-cell.navy { background: #1E293B; }
+  .bg-cell img { width: 56px; height: auto; }
+
+  .size-section {
+    max-width: 1200px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .size-section h3 {
+    font-weight: 400;
+    font-size: 0.9rem;
+    color: #64748B;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .size-row {
+    display: flex;
+    justify-content: center;
+    align-items: end;
+    gap: 28px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .size-item { text-align: center; }
+  .size-item span {
+    display: block;
+    font-size: 0.65rem;
+    color: #475569;
+    margin-top: 4px;
+  }
+  .size-label {
+    color: #64748B;
+    font-size: 0.75rem;
+    margin-bottom: 20px;
+  }
+</style>
+</head>
+<body>
+  <h1>WHOSE ON FIRST</h1>
+  <p class="subtitle">Round 2 — Spotlight Concept Variants</p>
+  <p class="note">Building on the "who's up" highlighted-person direction from Concept 3</p>
+
+  <!-- Original for reference -->
+  <div class="original">
+    <h3>Original Concept 3</h3>
+    <img src="concept3-spotlight.svg" alt="Original spotlight concept">
+  </div>
+
+  <hr class="divider">
+
+  <div class="grid">
+    <div class="card">
+      <h2>Variant A — Neon Dark</h2>
+      <span class="tag">Cyberpunk / Dev Tool</span>
+      <div class="logo-wrap">
+        <img src="variant-a-neon.svg" alt="Neon variant">
+      </div>
+      <p class="desc">Dark indigo background with cyan-to-purple neon outlines. The active person glows while teammates are dim gray. Diamond indicator above, numbered badge at bottom-right. Feels like a dev tool dashboard.</p>
+    </div>
+
+    <div class="card">
+      <h2>Variant B — Clean Flat</h2>
+      <span class="tag">Corporate / Universal</span>
+      <div class="logo-wrap">
+        <img src="variant-b-flat.svg" alt="Flat variant">
+      </div>
+      <p class="desc">Classic blue with simplified flat silhouettes. The center person is solid white and slightly larger — teammates are ghost-faded. Gold "#1" circle badge above. Clean, professional, works everywhere. Most versatile of the bunch.</p>
+    </div>
+
+    <div class="card">
+      <h2>Variant C — Rotation Ring</h2>
+      <span class="tag">Dynamic / Cycle</span>
+      <div class="logo-wrap">
+        <img src="variant-c-ring.svg" alt="Ring variant">
+      </div>
+      <p class="desc">Keeps the green from the original but adds a gold dashed orbit ring to emphasize rotation. Three team dots sit on the ring path, center person is highlighted inside. "1ST" badge in gold. Communicates movement and sequence.</p>
+    </div>
+
+    <div class="card">
+      <h2>Variant D — Podium</h2>
+      <span class="tag">Playful / Gamified</span>
+      <div class="logo-wrap">
+        <img src="variant-d-podium.svg" alt="Podium variant">
+      </div>
+      <p class="desc">Leans into the "first" part of the name with a podium/winners-stand metaphor. Gold first-place block, star above. Lighthearted and fun — good if the app has a playful personality. Sky blue palette.</p>
+    </div>
+  </div>
+
+  <!-- Background tests -->
+  <div class="bg-section">
+    <h3>Background Compatibility</h3>
+    <div class="bg-row">
+      <div class="bg-cell white">
+        <img src="variant-a-neon.svg">
+        <img src="variant-b-flat.svg">
+        <img src="variant-c-ring.svg">
+        <img src="variant-d-podium.svg">
+      </div>
+      <div class="bg-cell light">
+        <img src="variant-a-neon.svg">
+        <img src="variant-b-flat.svg">
+        <img src="variant-c-ring.svg">
+        <img src="variant-d-podium.svg">
+      </div>
+      <div class="bg-cell dark">
+        <img src="variant-a-neon.svg">
+        <img src="variant-b-flat.svg">
+        <img src="variant-c-ring.svg">
+        <img src="variant-d-podium.svg">
+      </div>
+    </div>
+  </div>
+
+  <!-- Size tests -->
+  <div class="size-section">
+    <h3>Scale Test — Each Variant</h3>
+    <p class="size-label">Variant B (Flat)</p>
+    <div class="size-row">
+      <div class="size-item"><img src="variant-b-flat.svg" width="16"><span>16</span></div>
+      <div class="size-item"><img src="variant-b-flat.svg" width="32"><span>32</span></div>
+      <div class="size-item"><img src="variant-b-flat.svg" width="48"><span>48</span></div>
+      <div class="size-item"><img src="variant-b-flat.svg" width="64"><span>64</span></div>
+      <div class="size-item"><img src="variant-b-flat.svg" width="128"><span>128</span></div>
+    </div>
+    <p class="size-label">Variant A (Neon)</p>
+    <div class="size-row">
+      <div class="size-item"><img src="variant-a-neon.svg" width="16"><span>16</span></div>
+      <div class="size-item"><img src="variant-a-neon.svg" width="32"><span>32</span></div>
+      <div class="size-item"><img src="variant-a-neon.svg" width="48"><span>48</span></div>
+      <div class="size-item"><img src="variant-a-neon.svg" width="64"><span>64</span></div>
+      <div class="size-item"><img src="variant-a-neon.svg" width="128"><span>128</span></div>
+    </div>
+  </div>
+
+</body>
+</html>

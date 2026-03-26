@@ -46,7 +46,7 @@ When making changes that affect documented behavior, run `/vault-update` before 
 ## Documentation Hierarchy
 
 ```text
-DocVault (Source of Truth)
+DocVault (Primary Docs) + mem0 (Session Context)
   ↓ references
 /docs/planning/PRD.md (Living Requirements)
   ↓ informs
