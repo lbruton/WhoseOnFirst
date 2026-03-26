@@ -51,10 +51,11 @@ class ShiftService:
     # Valid shift durations in hours
     VALID_DURATIONS = [24, 48]
 
-    # Valid days of week (can be single day or range like "Tuesday-Wednesday")
+    # Valid days of week (single days + all consecutive 2-day pairs for 48h shifts)
     VALID_DAY_NAMES = [
         "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
-        "Tuesday-Wednesday"  # Special case for 48h shift
+        "Monday-Tuesday", "Tuesday-Wednesday", "Wednesday-Thursday",
+        "Thursday-Friday", "Friday-Saturday", "Saturday-Sunday", "Sunday-Monday",
     ]
 
     # Weekend shift numbers (Saturday=5, Sunday=6 per PRD)

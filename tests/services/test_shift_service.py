@@ -93,11 +93,28 @@ class TestShiftServiceCreate:
                 "duration_hours": 24
             })
 
+    def test_create_all_consecutive_day_pairs(self, db_session: Session):
+        """Test that all consecutive 2-day pairs are accepted for 48h shifts."""
+        service = ShiftService(db_session)
+
+        pairs = [
+            "Monday-Tuesday", "Tuesday-Wednesday", "Wednesday-Thursday",
+            "Thursday-Friday", "Friday-Saturday", "Saturday-Sunday", "Sunday-Monday"
+        ]
+        for i, pair in enumerate(pairs, start=1):
+            shift = service.create({
+                "shift_number": i,
+                "day_of_week": pair,
+                "duration_hours": 48
+            })
+            assert shift.day_of_week == pair
+            assert shift.duration_hours == 48
+
     def test_create_invalid_day_of_week(self, db_session: Session):
         """Test that invalid day_of_week raises error."""
         service = ShiftService(db_session)
 
-        invalid_days = ["Funday", "NotADay", "", 123]
+        invalid_days = ["Funday", "NotADay", "", 123, "Monday-Wednesday", "Tuesday-Friday"]
 
         for day in invalid_days:
             with pytest.raises(InvalidShiftDataError):
