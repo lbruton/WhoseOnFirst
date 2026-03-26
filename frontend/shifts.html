@@ -14,7 +14,7 @@
 
     <style>
         /* Page background for better card separation */
-        .page-body {
+        .page-body, .page-header {
             background-color: #d5dce6;
         }
 
@@ -76,7 +76,8 @@
         }
 
         /* Dark mode overrides */
-        [data-bs-theme="dark"] .page-body {
+        [data-bs-theme="dark"] .page-body,
+        [data-bs-theme="dark"] .page-header {
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {

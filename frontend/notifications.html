@@ -23,7 +23,7 @@
         }
 
         /* Page background and card contrast */
-        .page-body { background-color: #d5dce6; }
+        .page-body, .page-header { background-color: #d5dce6; }
         .card { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #cbd5e1; }
 
         /* Enhanced Cards */
@@ -54,7 +54,8 @@
         .team-color-16 { background-color: #7e22ce; color: white; } /* Violet */
 
         /* Dark mode overrides */
-        [data-bs-theme="dark"] .page-body {
+        [data-bs-theme="dark"] .page-body,
+        [data-bs-theme="dark"] .page-header {
             background-color: var(--tblr-body-bg) !important;
         }
         [data-bs-theme="dark"] .card {
