@@ -12,16 +12,15 @@ Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs
 
 **Project:** WhoseOnFirst - Automated on-call rotation and SMS notification system for 7-person technical team
 
-**Current Status:** Phase 1 MVP Complete
+**Current Status:** Phase 1 MVP + Auth Complete
 
 - Backend: 100% (FastAPI/APScheduler/Twilio)
-- Frontend: 100% (8 pages with live data)
+- Frontend: 100% (11 pages — dashboard, login, admin, team members, shifts, schedule, schedule overrides, notifications, help, change password, style guide)
+- Auth: Shipped (Argon2 password hashing, login/logout, role-based access, first-boot admin seeding)
 - Testing: 288 tests, 85% coverage
-- Deployment: Docker containerized
+- Deployment: Docker on Portainer (production), Cloudflare tunnel + Zero Trust
 
-**Blocker:** Twilio US number approval (~1 week wait)
-
-**Next Phase:** Docker offline installer + Authentication system
+**Next Phase:** Versioning process, Docker offline installer, PostgreSQL migration
 
 **Work From:**
 
@@ -132,7 +131,7 @@ pytest --cov=src --cov-report=html
 
 ### Database Schema
 
-**Core Tables:** `team_members`, `shifts`, `schedule`, `notification_log`, `settings`
+**Core Tables:** `team_members`, `shifts`, `schedule`, `notification_log`, `settings`, `users`
 
 **Important Indexes:** `schedule(start_datetime)`, `schedule(notified, start_datetime)`, `team_members(is_active)`
 
@@ -140,14 +139,22 @@ pytest --cov=src --cov-report=html
 
 All APIs under `/api/v1/` prefix:
 
+- `/auth/` - Login, logout, token refresh, password change
+- `/admin/` - User management (create, list, delete users, reset passwords)
 - `/team-members/` - CRUD, `/reorder` (drag-drop), `/{id}/permanent` (hard delete)
 - `/shifts/` - Shift configuration management
 - `/schedules/` - Generation, queries, notifications
+- `/schedule-overrides/` - Manual schedule swap/override management
+- `/notifications/` - Notification history and configuration
 - `/settings/` - Auto-renewal configuration
+
+Also: `/api` (info), `/health` (health check), `/api/v1/version` (build version)
 
 ### Security Requirements
 
-- All credentials in `.env` file (never commit)
+- Service credentials (Twilio, SECRET_KEY) in `.env` / Portainer stack env vars (never commit)
+- **First-boot admin seeding:** `src/main.py` lifespan hook creates `admin/Admin123!` when `users` table is empty (idempotent). This is a code-resident credential — change it after first login.
+- Auth uses Argon2-cffi (OWASP 2025 recommended) for password hashing
 - Pydantic validates all inputs (phone: `^\+1\d{10}$`)
 - SQLAlchemy ORM exclusively (no raw SQL)
 - Mask phone numbers in logs (last 4 digits)
@@ -217,8 +224,8 @@ Issues tracked in DocVault vault. Prefix: `WHO` (see `issue` skill).
 ## Project Phases
 
 **Phase 1: MVP** — COMPLETE
-**Phase 2: Deployment & Auth** — IN PLANNING
-**Phase 3: Enhancements** — PLANNED
+**Phase 2: Deployment & Auth** — COMPLETE (Portainer GitOps, Cloudflare tunnel, Argon2 auth, admin seeding, role-based access)
+**Phase 3: Enhancements** — IN PLANNING (versioning, Docker offline installer, PostgreSQL migration)
 **Phase 4: Advanced Features** — FUTURE
 
 ---
