@@ -21,8 +21,10 @@
 #      of colliding with anything else running on the Mac.
 #
 # For local env overrides (e.g., pointing at a real test Twilio account
-# for the "real SMS test" runbook), create a `.env.dev` file next to this
-# compose file — it's gitignored. See `.env.dev.example` for the template.
+# for the "real SMS test" runbook), copy `.env.dev.example` to `.env.dev`
+# (gitignored) AND uncomment the `env_file:` stanza below. Without that
+# stanza, docker-compose does NOT read .env.dev — the inline `environment:`
+# values in this file are the only source of truth by default.
 #
 # Version: 2.0.0 (WHO-49 Phase 1 — SMS mock mode + safe env separation)
 # ============================================
@@ -45,14 +47,37 @@ services:
 
     # Bind-mounted dev database directory. The `./data/dev/` folder is
     # gitignored and can be wiped anytime (`rm -rf data/dev/`) without
-    # losing anything important. First boot will auto-seed the admin
-    # and viewer users — no production data import required to test auth.
+    # losing anything important. First boot auto-seeds the admin user
+    # (`admin` / `Admin123!`) via src/main.py — no production data
+    # import required to test auth.
+    #
+    # TRADEOFF NOTE (vs the old named volume this file used to use):
+    # A bind mount re-exposes the macOS fcntl/SQLite corruption risk
+    # the named volume was solving. This is a conscious call:
+    #   - The dev DB is disposable; re-seed is ~2 seconds on restart.
+    #   - The old named volume failed differently and more often:
+    #     Docker Desktop prune or restart silently wiped it, requiring
+    #     a 15-step manual recovery runbook (see MEMORY.md).
+    #   - Bind mount enables direct `sqlite3 data/dev/whoseonfirst.db`
+    #     inspection from the host for WHO-45 screenshot data setup.
+    #   - Recovery from corruption: `rm -rf data/dev && docker-compose
+    #     -f docker-compose.dev.yml restart`.
+    # Revisit if corruption starts happening in practice.
     volumes:
       - ./data/dev:/app/data
 
-    # Environment — all values set explicitly, NOTHING loaded from .env.
-    # The `env_file:` directive has been deliberately REMOVED to prevent
-    # production Twilio credentials from leaking into this container.
+    # Environment — all values set explicitly, NOTHING loaded from the
+    # production `.env` file. The `env_file: - .env` directive has been
+    # deliberately REMOVED to prevent production Twilio credentials from
+    # leaking into this container.
+    #
+    # OPTIONAL: uncomment the stanza below to additionally load `.env.dev`
+    # (gitignored, see .env.dev.example for the template). Useful for the
+    # real-sms-test runbook (WHO-49 Phase 3) or adjusting NOTIFICATION_HOUR
+    # on the fly without rebuilding. Any key defined in .env.dev will
+    # override the inline `environment:` values below.
+    # env_file:
+    #   - .env.dev
     environment:
       # Database
       - DATABASE_URL=sqlite:///./data/whoseonfirst.db
@@ -69,11 +94,15 @@ services:
       # calling Twilio. Do NOT remove this line without a spec.
       - SMS_MOCK_MODE=true
 
-      # Twilio placeholders — intentionally fake. With SMS_MOCK_MODE=true
-      # above, these are never used for real API calls, but they also
-      # won't satisfy the "all three present" check in SMSService.__init__
-      # unless mock mode is active. Leaving them blank is fine because
-      # SMS_MOCK_MODE=true bypasses the check entirely.
+      # Twilio placeholders — intentionally fake. Defense in depth:
+      # SMS_MOCK_MODE=true above short-circuits Twilio client init entirely,
+      # so these values are never read during normal operation. If something
+      # later flipped SMS_MOCK_MODE=false, these non-empty placeholders
+      # WOULD pass the "all three present" check in SMSService.__init__,
+      # but the Twilio SDK would then reject them with a 401 on the first
+      # real API call — a loud failure, not a silent message delivery.
+      # Two independent walls, neither enough on its own: (1) no twilio_client
+      # object exists while mock mode is on, (2) fake SID would 401 if it did.
       - TWILIO_ACCOUNT_SID=ACdev_mock_account_sid_not_real
       - TWILIO_AUTH_TOKEN=dev_mock_auth_token_not_real
       - TWILIO_PHONE_NUMBER=+15550000000
