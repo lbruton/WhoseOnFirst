@@ -70,15 +70,23 @@ class SMSService:
             db: SQLAlchemy database session
             max_retries: Maximum retry attempts (default: 3)
             base_delay: Base delay in seconds for exponential backoff (default: 60)
-            mock_mode: If True, skip Twilio client initialization for testing
+            mock_mode: If True, skip Twilio client initialization for testing.
+                Can also be enabled at runtime by setting the SMS_MOCK_MODE
+                environment variable to "1", "true", or "yes" (case-insensitive).
+                The env var is OR'd with this parameter, so either one being
+                truthy forces mock mode. This is the supported way to disable
+                real SMS in dev containers — see `.env.dev.example`.
 
         Raises:
-            TwilioConfigurationError: If Twilio credentials are missing
+            TwilioConfigurationError: If Twilio credentials are missing and
+                mock mode is not enabled.
         """
         self.db = db
         self.max_retries = max_retries
         self.base_delay = base_delay
-        self.mock_mode = mock_mode
+        # SMS_MOCK_MODE env var provides runtime override for dev containers.
+        # OR'd with the constructor arg so tests passing mock_mode=True still work.
+        self.mock_mode = mock_mode or os.getenv('SMS_MOCK_MODE', '').lower() in ('1', 'true', 'yes')
 
         # Initialize repositories and services
         self.notification_repo = NotificationLogRepository(db)
@@ -86,7 +94,7 @@ class SMSService:
         self.settings_service = SettingsService(db)
 
         # Initialize Twilio client
-        if not mock_mode:
+        if not self.mock_mode:
             account_sid = os.getenv('TWILIO_ACCOUNT_SID')
             auth_token = os.getenv('TWILIO_AUTH_TOKEN')
             self.from_phone = os.getenv('TWILIO_PHONE_NUMBER')

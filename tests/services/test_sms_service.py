@@ -128,6 +128,59 @@ class TestSMSServiceInitialization:
         assert service.from_phone == '+15551234567'
         mock_client.assert_called_once_with('AC123', 'token123')
 
+    @patch.dict(os.environ, {'SMS_MOCK_MODE': 'true'}, clear=True)
+    def test_sms_mock_mode_env_var_forces_mock_with_missing_creds(self, test_db_session):
+        """
+        SMS_MOCK_MODE=true must force mock mode even when Twilio credentials
+        are entirely missing. This is the dev container's primary safety rail —
+        it allows the app to boot with a blank .env without crashing.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.mock_mode is True
+        assert service.twilio_client is None
+        assert service.from_phone == "+15551234567"
+
+    @patch.dict(os.environ, {'SMS_MOCK_MODE': '1'}, clear=True)
+    def test_sms_mock_mode_env_var_accepts_numeric_one(self, test_db_session):
+        """SMS_MOCK_MODE=1 should also enable mock mode."""
+        service = SMSService(test_db_session)
+        assert service.mock_mode is True
+
+    @patch.dict(os.environ, {'SMS_MOCK_MODE': 'YES'}, clear=True)
+    def test_sms_mock_mode_env_var_is_case_insensitive(self, test_db_session):
+        """SMS_MOCK_MODE should accept uppercase YES."""
+        service = SMSService(test_db_session)
+        assert service.mock_mode is True
+
+    @patch.dict(os.environ, {
+        'SMS_MOCK_MODE': 'false',
+        'TWILIO_ACCOUNT_SID': 'AC123',
+        'TWILIO_AUTH_TOKEN': 'token123',
+        'TWILIO_PHONE_NUMBER': '+15551234567'
+    })
+    @patch('src.services.sms_service.Client')
+    def test_sms_mock_mode_env_var_false_does_not_force_mock(self, mock_client, test_db_session):
+        """
+        SMS_MOCK_MODE=false (or any non-truthy value) must NOT force mock mode.
+        With real-looking credentials present, Twilio should initialize normally.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.mock_mode is False
+        assert service.twilio_client is not None
+
+    @patch.dict(os.environ, {'SMS_MOCK_MODE': 'true'}, clear=True)
+    def test_sms_mock_mode_env_var_overrides_false_constructor_arg(self, test_db_session):
+        """
+        The env var must take precedence over mock_mode=False at construction time.
+        This matters because production code instantiates SMSService without passing
+        mock_mode at all — relying on the default False. The env var is the only
+        way dev containers can flip the flag without touching instantiation sites.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+        assert service.mock_mode is True
+
 
 class TestSendNotification:
     """Tests for sending individual notifications."""
