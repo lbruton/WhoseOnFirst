@@ -1,9 +1,30 @@
 # ============================================
-# WhoseOnFirst - Mac Development Configuration
+# WhoseOnFirst - Mac Local Development Configuration
 # ============================================
-# Docker Compose configuration for local Mac development
-# Avoids port conflicts and macOS SQLite corruption issues
-# Version: 1.0.0
+# This is the LOCAL DEV container for build-and-test work on your Mac.
+# It is NOT the production deployment — production runs on Portainer
+# stack #12 at 192.168.1.81 via GitOps from the `main` branch.
+#
+# Safety rails baked into this file:
+#   1. SMS_MOCK_MODE=true — app boots with NO real Twilio credentials
+#      and any notification path logs `[MOCK] Sending SMS...` instead
+#      of hitting Twilio. Eliminates the duplicate-SMS hazard documented
+#      in MEMORY.md where a dev container running alongside production
+#      would fire the same 8 AM CST SMS to real coworkers.
+#   2. NO `env_file: .env` — the shared `.env` file holds LIVE production
+#      Twilio credentials and must never be read by this container.
+#      All env vars are set explicitly below.
+#   3. Bind-mounted ./data/dev/ directory — survives Docker Desktop prune
+#      (unlike the old named volume which got wiped on maintenance ops).
+#      macOS fcntl corruption risk is acceptable for a throwaway dev DB.
+#   4. Dedicated container name, network, and port so there's zero risk
+#      of colliding with anything else running on the Mac.
+#
+# For local env overrides (e.g., pointing at a real test Twilio account
+# for the "real SMS test" runbook), create a `.env.dev` file next to this
+# compose file — it's gitignored. See `.env.dev.example` for the template.
+#
+# Version: 2.0.0 (WHO-49 Phase 1 — SMS mock mode + safe env separation)
 # ============================================
 
 services:
@@ -15,45 +36,58 @@ services:
     container_name: whoseonfirst-dev
     restart: unless-stopped
 
-    # Port mapping - Use 8900 externally to avoid conflict with uvicorn dev server
+    # External port 8900 — matches production port for URL consistency.
+    # Production runs on a different host (192.168.1.81), so there's no
+    # actual conflict. NPM reverse proxy points whoseonfirstdev.lbruton.cc
+    # at 192.168.1.99:8900 (this Mac) for HTTPS browser testing.
     ports:
-      - "8900:8000"  # External port 8900 -> Internal port 8000
+      - "8900:8000"
 
-    # Volumes for development
+    # Bind-mounted dev database directory. The `./data/dev/` folder is
+    # gitignored and can be wiped anytime (`rm -rf data/dev/`) without
+    # losing anything important. First boot will auto-seed the admin
+    # and viewer users — no production data import required to test auth.
     volumes:
-      # CRITICAL: Use named volume for database to prevent macOS SQLite corruption
-      # macOS fcntl locking WILL corrupt SQLite on Docker restart if bind-mounted
-      - whoseonfirst-dev-db:/app/data
+      - ./data/dev:/app/data
 
-      # Mount source code for development (optional - enable for hot reload)
-      # - ./src:/app/src:ro
-      # - ./frontend:/app/frontend:ro
-
-    # Environment variables
+    # Environment — all values set explicitly, NOTHING loaded from .env.
+    # The `env_file:` directive has been deliberately REMOVED to prevent
+    # production Twilio credentials from leaking into this container.
     environment:
+      # Database
       - DATABASE_URL=sqlite:///./data/whoseonfirst.db
+
+      # Web server
       - HOST=0.0.0.0
       - PORT=8000
-      - LOG_LEVEL=DEBUG  # More verbose logging for development
+      - LOG_LEVEL=DEBUG
 
-      # Twilio configuration (from .env file)
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      # SMS safety rail — THIS IS THE CRITICAL LINE.
+      # SMSService reads this env var at init (src/services/sms_service.py)
+      # and short-circuits Twilio client initialization when truthy. All
+      # notification paths will log `[MOCK] Sending SMS...` instead of
+      # calling Twilio. Do NOT remove this line without a spec.
+      - SMS_MOCK_MODE=true
 
-      # SMS notification schedule
-      - NOTIFICATION_TIMEZONE=${NOTIFICATION_TIMEZONE:-America/Chicago}
-      - NOTIFICATION_HOUR=${NOTIFICATION_HOUR:-8}
-      - NOTIFICATION_MINUTE=${NOTIFICATION_MINUTE:-0}
+      # Twilio placeholders — intentionally fake. With SMS_MOCK_MODE=true
+      # above, these are never used for real API calls, but they also
+      # won't satisfy the "all three present" check in SMSService.__init__
+      # unless mock mode is active. Leaving them blank is fine because
+      # SMS_MOCK_MODE=true bypasses the check entirely.
+      - TWILIO_ACCOUNT_SID=ACdev_mock_account_sid_not_real
+      - TWILIO_AUTH_TOKEN=dev_mock_auth_token_not_real
+      - TWILIO_PHONE_NUMBER=+15550000000
 
-      # Security
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      # Notification scheduling — keep the production schedule so the
+      # scheduler actually fires and you can observe the `[MOCK]` log line.
+      - NOTIFICATION_TIMEZONE=America/Chicago
+      - NOTIFICATION_HOUR=8
+      - NOTIFICATION_MINUTE=0
 
-    # Load environment from .env file
-    env_file:
-      - .env
+      # Dev-only secret key — do NOT copy this value to production.
+      - SECRET_KEY=dev-only-secret-key-do-not-use-in-production
 
-    # Health check
+    # Health check — hits the app's /health endpoint
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -61,26 +95,19 @@ services:
       retries: 3
       start_period: 40s
 
-    # Logging configuration
+    # Logging
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-    # Network
+    # Isolated network
     networks:
       - whoseonfirst-dev-network
 
-    # Grace period for clean shutdown
     stop_grace_period: 30s
 
-# Named volume for database (prevents macOS corruption)
-volumes:
-  whoseonfirst-dev-db:
-    driver: local
-
-# Network definition
 networks:
   whoseonfirst-dev-network:
     driver: bridge
