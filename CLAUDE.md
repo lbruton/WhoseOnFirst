@@ -19,8 +19,6 @@ Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs
 - Testing: 288 tests, 85% coverage
 - Deployment: Docker containerized
 
-**Blocker:** Twilio US number approval (~1 week wait)
-
 **Next Phase:** Docker offline installer + Authentication system
 
 **Work From:**
@@ -35,31 +33,13 @@ Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs
 
 Technical documentation lives in **DocVault** at `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/`. Read relevant pages before discussing architecture or planning changes.
 
-Key pages: `Overview.md`, Issues directory.
+Key pages: Start at `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/_Index.md` and follow the index.
 
 ```
 Read /Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/Overview.md
 ```
 
 When making changes that affect documented behavior, run `/vault-update` before pushing.
-
-## Documentation Hierarchy
-
-```text
-DocVault (Primary Docs) + mem0 (Session Context)
-  ↓ references
-/docs/planning/PRD.md (Living Requirements)
-  ↓ informs
-CLAUDE.md (This File - AI Context)
-  ↓ generates
-CHANGELOG.md (Version History)
-  ↓ summarizes
-README.md (User-Facing)
-```
-
-**Full Documentation Guide:** `/docs/DOCUMENTATION_GUIDE.md`
-
----
 
 ## Project Architecture
 
@@ -161,20 +141,6 @@ All APIs under `/api/v1/` prefix:
 
 ---
 
-## Common Patterns
-
-### Repository Pattern
-
-```python
-class TeamMemberRepository(BaseRepository[TeamMember]):
-    def get_active(self) -> List[TeamMember]:
-        return self.db.query(self.model).filter(
-            self.model.is_active == True
-        ).all()
-```
-
----
-
 ## Important Constraints
 
 1. **Timezone:** Always use America/Chicago (CST/CDT) via `pytz`
@@ -187,24 +153,15 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
 
 ## Common Pitfalls (Avoid These)
 
-- Using system cron → Use APScheduler
-- Hardcoding timezones → Use `timezone('America/Chicago')`
-- Skipping phone validation → Validate E.164 format
-- Missing indexes → Index frequently queried fields
-- Regenerating entire schedule → Regenerate from change date forward
-- Storing secrets in code → Use environment variables
+- Using system cron → Use APScheduler (project standard)
+- Hardcoding timezones → Use `timezone('America/Chicago')` (CST/CDT)
+- Regenerating entire schedule → Regenerate from change date forward only
 
 ---
 
 ## RPI Workflow (Research → Plan → Implement)
 
-**WhoseOnFirst uses RPI** — a lightweight 3-phase process adapted from HexTrackr. This is a project-specific override to the global spec-workflow.
-
-**Phase 1: RESEARCH** (30-90 min) — Document current state with file:line references
-**Phase 2: PLAN** (30-60 min) — Break into 3-10 tasks, write before/after snippets
-**Phase 3: IMPLEMENT** (1-3 hours) — Execute with Docker rebuild checkpoints
-
-**Full Process:** `/docs/RPI_PROCESS.md`
+WhoseOnFirst uses **RPI** — a lightweight 3-phase process (Research → Plan → Implement). This is a project-specific override to the global spec-workflow. Full process: `/docs/RPI_PROCESS.md`
 
 ---
 
@@ -222,18 +179,6 @@ Issues tracked in DocVault vault. Prefix: `WHO` (see `issue` skill).
 **Phase 4: Advanced Features** — FUTURE
 
 ---
-
-## When Creating New Code
-
-1. Follow layered architecture (API → Service → Repository)
-2. Use type hints everywhere (MyPy validation)
-3. Write tests first (especially critical paths)
-4. Handle timezones explicitly (America/Chicago)
-5. Log important events with context
-6. Validate all inputs (Pydantic models)
-7. Use dependency injection (FastAPI `Depends()`)
-
-
 
 ## Code Search
 
