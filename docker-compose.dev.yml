@@ -14,8 +14,10 @@
 #   2. NO `env_file: .env` — the shared `.env` file holds LIVE production
 #      Twilio credentials and must never be read by this container.
 #      All env vars are set explicitly below.
-#   3. Bind-mounted ./data/dev/ directory — survives Docker Desktop prune
-#      (unlike the old named volume which got wiped on maintenance ops).
+#   3. Bind-mounted `~/whoseonfirst-dev-data/` directory (absolute path
+#      under $HOME, NOT relative to this compose file) — survives Docker
+#      Desktop prune AND survives `git worktree remove` while the
+#      container is alive (the old `./data/dev` form did not).
 #      macOS fcntl corruption risk is acceptable for a throwaway dev DB.
 #   4. Dedicated container name, network, and port so there's zero risk
 #      of colliding with anything else running on the Mac.
@@ -45,11 +47,24 @@ services:
     ports:
       - "8900:8000"
 
-    # Bind-mounted dev database directory. The `./data/dev/` folder is
-    # gitignored and can be wiped anytime (`rm -rf data/dev/`) without
-    # losing anything important. First boot auto-seeds the admin user
+    # Bind-mounted dev database directory at an ABSOLUTE host path
+    # (`${HOME}/whoseonfirst-dev-data/`). Wipe anytime with
+    # `rm -rf ~/whoseonfirst-dev-data/` without losing anything
+    # important. First boot auto-seeds the admin user
     # (`admin` / `Admin123!`) via src/main.py — no production data
     # import required to test auth.
+    #
+    # WHY ABSOLUTE PATH (not the old `./data/dev` relative form):
+    # The relative path was resolved against the docker-compose file's
+    # directory, which works fine in a regular checkout but is a footgun
+    # when running from a git worktree. If `git worktree remove` runs
+    # while the container is alive, the bind mount silently re-points
+    # at a stub directory under the deleted worktree path. The
+    # container keeps reporting `/health` healthy (the endpoint is
+    # static and never touches the DB) while writes go nowhere visible
+    # and the next restart loses the seed. WHO-49 Phase 1 hit this exact
+    # zombie state during cleanup. An absolute path under $HOME survives
+    # any worktree lifecycle, repo clone move, or branch switch.
     #
     # TRADEOFF NOTE (vs the old named volume this file used to use):
     # A bind mount re-exposes the macOS fcntl/SQLite corruption risk
@@ -58,13 +73,18 @@ services:
     #   - The old named volume failed differently and more often:
     #     Docker Desktop prune or restart silently wiped it, requiring
     #     a 15-step manual recovery runbook (see MEMORY.md).
-    #   - Bind mount enables direct `sqlite3 data/dev/whoseonfirst.db`
-    #     inspection from the host for WHO-45 screenshot data setup.
-    #   - Recovery from corruption: `rm -rf data/dev && docker-compose
-    #     -f docker-compose.dev.yml restart`.
+    #   - Bind mount enables direct
+    #     `sqlite3 ~/whoseonfirst-dev-data/whoseonfirst.db` inspection
+    #     from the host for WHO-45 screenshot data setup.
+    #   - Recovery from corruption: `rm -rf ~/whoseonfirst-dev-data &&
+    #     docker-compose -f docker-compose.dev.yml restart`.
     # Revisit if corruption starts happening in practice.
+    #
+    # First-time setup: `mkdir -p ~/whoseonfirst-dev-data` before the
+    # first `docker-compose up` (Docker will create it otherwise but
+    # with root ownership on some setups).
     volumes:
-      - ./data/dev:/app/data
+      - "${HOME:?HOME must be set for the dev bind mount}/whoseonfirst-dev-data:/app/data"
 
     # Environment — all values set explicitly, NOTHING loaded from the
     # production `.env` file. The `env_file: - .env` directive has been

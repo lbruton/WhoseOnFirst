@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > See `~/.claude/CLAUDE.md` for global workflow rules (push safety, version checkout gate, PR lifecycle, MCP tools, code search tiers, UI design workflow, plugins).
 
-## Push Policy (overrides global)
+## Branch & Push Policy (overrides global)
 
-Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs are optional — use them for features or anything that warrants a review trail. No version lock, no Codacy gate on pushes.
+**Default branch is `dev`** — both locally and as the PR target. `main` is the production branch and is only updated via a deliberate `dev → main` PR during a scheduled maintenance window (see WHO-49). The Portainer GitOps stack auto-deploys from `main`, so any push to `main` fires real SMS at real coworkers on the next scheduler tick.
+
+- **All work happens on `dev`** (or worktrees branched off `dev`).
+- **Both `main` and `dev` require PRs** — direct push is blocked by GitHub repository rules on both branches. Always work in a worktree off `dev` and open a PR targeting `dev`.
+- **`dev → main` PRs** are only opened when shipping to production. The user will explicitly say "ship" or "release" — never open or merge a `dev → main` PR without that signal.
+- **Never push directly to `main` or `dev`.** Both will be rejected by branch protection; even if they weren't, `main` would deploy to production immediately.
+- No version lock, no Codacy gate on PRs.
+
+**Before any code change:** verify you are on `dev` (or a worktree off `dev`), not `main`. If you find yourself on `main`, stop and switch.
 
 ## Quick Start
 
