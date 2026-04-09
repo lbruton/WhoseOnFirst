@@ -94,6 +94,14 @@ Export a full database backup or restore from a previous backup. The restore is 
   <img src="docs/screenshots/08-admin.png" alt="Admin - Backup & Restore" width="700">
 </p>
 
+### Help &amp; Setup Guide
+
+Step-by-step Twilio configuration walkthrough, environment variable reference, and troubleshooting FAQ.
+
+<p align="center">
+  <img src="docs/screenshots/09-help.png" alt="Help & Setup Guide" width="700">
+</p>
+
 ---
 
 ## Technology Stack
