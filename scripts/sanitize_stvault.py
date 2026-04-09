@@ -64,7 +64,10 @@ def sanitize(payload: dict) -> dict:
         (m for m in members if m["is_active"]),
         key=lambda m: (m["rotation_order"] is None, m["rotation_order"]),
     )
-    inactive = [m for m in members if not m["is_active"]]
+    inactive = sorted(
+        (m for m in members if not m["is_active"]),
+        key=lambda m: (m["id"] is None, m["id"]),
+    )
 
     if len(active) > len(ACTIVE_ROSTER):
         raise ValueError(
@@ -96,10 +99,10 @@ def main() -> int:
         return 2
     src = Path(sys.argv[1])
     dst = Path(sys.argv[2])
-    with src.open() as f:
+    with src.open(encoding="utf-8") as f:
         payload = json.load(f)
     sanitized = sanitize(payload)
-    with dst.open("w") as f:
+    with dst.open("w", encoding="utf-8") as f:
         # Match the admin export endpoint's UTF-8 behavior so a round-trip
         # (export -> sanitize -> import) preserves any non-ASCII content in
         # settings or schedule fields byte-for-byte.

@@ -9,13 +9,13 @@
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.115+-009688.svg" alt="FastAPI"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.5.0-success.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.6.1-success.svg" alt="Version"></a>
   <a href="https://app.codacy.com/gh/lbruton/WhoseOnFirst/dashboard"><img src="https://app.codacy.com/project/badge/Grade/876350f66cf34d748628126b42ee9118" alt="Codacy"></a>
 </p>
 
 ---
 
-WhoseOnFirst manages shift assignments and sends daily SMS notifications to on-call team members. The system uses a circular rotation algorithm to ensure fair, predictable shift distribution across a 7-person technical support team.
+WhoseOnFirst manages shift assignments and sends daily SMS notifications to on-call team members. The system uses a circular rotation algorithm to ensure fair, predictable shift distribution.
 
 ## Features
 
@@ -94,6 +94,14 @@ Export a full database backup or restore from a previous backup. The restore is 
   <img src="docs/screenshots/08-admin.png" alt="Admin - Backup & Restore" width="700">
 </p>
 
+### Help &amp; Setup Guide
+
+Step-by-step Twilio configuration walkthrough, environment variable reference, and troubleshooting FAQ.
+
+<p align="center">
+  <img src="docs/screenshots/09-help.png" alt="Help & Setup Guide" width="700">
+</p>
+
 ---
 
 ## Technology Stack
@@ -132,4 +140,4 @@ docker-compose up -d
 
 ---
 
-*Version 1.5.0 &middot; [Changelog](CHANGELOG.md)*
+*Version 1.6.1 &middot; [Changelog](CHANGELOG.md)*
