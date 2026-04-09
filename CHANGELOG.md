@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.1] - 2026-04-09
+
+### Fixed
+
+- **Light mode page-wrapper background** — Tabler's `.page-wrapper` default white background was bleeding through above page headers and between stat cards on all pages. Added `.page-wrapper` to background-color rules for consistent gray (#d5dce6) across all 9 pages in both light and dark mode.
+
+### Added
+
+- **SMS_MOCK_MODE** — Environment variable to disable real Twilio SMS in dev containers, preventing duplicate notifications to production contacts (WHO-49 Phase 1)
+- **Dev data sanitization script** — `scripts/sanitize_stvault.py` generates fake team member data for safe dev/demo use (WHO-49 Phase 2)
+- **README screenshots** — 9 app page screenshots with hero banner, feature walkthrough, and demo data for GitHub/GitLab presentation (WHO-45)
+
+### Changed
+
+- **Dev container config** — Absolute bind mount paths, dev-default branch policy, `.env.dev.example` reference config
+- **Repository cleanup** — Removed `.spec-workflow/` dev tooling artifacts (42 files), logo design drafts (12 files), and stale branches ahead of corporate GitLab mirror
+
+---
+
 ## [1.6.0] - 2026-03-18
 
 ### Added

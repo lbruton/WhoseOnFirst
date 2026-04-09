@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.12-blue.svg" alt="Python"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.115+-009688.svg" alt="FastAPI"></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.5.0-success.svg" alt="Version"></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.6.1-success.svg" alt="Version"></a>
   <a href="https://app.codacy.com/gh/lbruton/WhoseOnFirst/dashboard"><img src="https://app.codacy.com/project/badge/Grade/876350f66cf34d748628126b42ee9118" alt="Codacy"></a>
 </p>
 
@@ -132,4 +132,4 @@ docker-compose up -d
 
 ---
 
-*Version 1.5.0 &middot; [Changelog](CHANGELOG.md)*
+*Version 1.6.1 &middot; [Changelog](CHANGELOG.md)*
