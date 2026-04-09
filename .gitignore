@@ -66,6 +66,7 @@ HANDOFF.md
 
 # Documentation (keep local for reference, not needed in deployment)
 docs/
+!docs/screenshots/
 
 # Database
 *.db
