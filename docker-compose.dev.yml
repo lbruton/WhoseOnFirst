@@ -1,9 +1,34 @@
 # ============================================
-# WhoseOnFirst - Mac Development Configuration
+# WhoseOnFirst - Mac Local Development Configuration
 # ============================================
-# Docker Compose configuration for local Mac development
-# Avoids port conflicts and macOS SQLite corruption issues
-# Version: 1.0.0
+# This is the LOCAL DEV container for build-and-test work on your Mac.
+# It is NOT the production deployment — production runs on Portainer
+# stack #12 at 192.168.1.81 via GitOps from the `main` branch.
+#
+# Safety rails baked into this file:
+#   1. SMS_MOCK_MODE=true — app boots with NO real Twilio credentials
+#      and any notification path logs `[MOCK] Sending SMS...` instead
+#      of hitting Twilio. Eliminates the duplicate-SMS hazard documented
+#      in MEMORY.md where a dev container running alongside production
+#      would fire the same 8 AM CST SMS to real coworkers.
+#   2. NO `env_file: .env` — the shared `.env` file holds LIVE production
+#      Twilio credentials and must never be read by this container.
+#      All env vars are set explicitly below.
+#   3. Bind-mounted `~/whoseonfirst-dev-data/` directory (absolute path
+#      under $HOME, NOT relative to this compose file) — survives Docker
+#      Desktop prune AND survives `git worktree remove` while the
+#      container is alive (the old `./data/dev` form did not).
+#      macOS fcntl corruption risk is acceptable for a throwaway dev DB.
+#   4. Dedicated container name, network, and port so there's zero risk
+#      of colliding with anything else running on the Mac.
+#
+# For local env overrides (e.g., pointing at a real test Twilio account
+# for the "real SMS test" runbook), copy `.env.dev.example` to `.env.dev`
+# (gitignored) AND uncomment the `env_file:` stanza below. Without that
+# stanza, docker-compose does NOT read .env.dev — the inline `environment:`
+# values in this file are the only source of truth by default.
+#
+# Version: 2.0.0 (WHO-49 Phase 1 — SMS mock mode + safe env separation)
 # ============================================
 
 services:
@@ -15,45 +40,103 @@ services:
     container_name: whoseonfirst-dev
     restart: unless-stopped
 
-    # Port mapping - Use 8900 externally to avoid conflict with uvicorn dev server
+    # External port 8900 — matches production port for URL consistency.
+    # Production runs on a different host (192.168.1.81), so there's no
+    # actual conflict. NPM reverse proxy points whoseonfirstdev.lbruton.cc
+    # at 192.168.1.99:8900 (this Mac) for HTTPS browser testing.
     ports:
-      - "8900:8000"  # External port 8900 -> Internal port 8000
+      - "8900:8000"
 
-    # Volumes for development
+    # Bind-mounted dev database directory at an ABSOLUTE host path
+    # (`${HOME}/whoseonfirst-dev-data/`). Wipe anytime with
+    # `rm -rf ~/whoseonfirst-dev-data/` without losing anything
+    # important. First boot auto-seeds the admin user
+    # (`admin` / `Admin123!`) via src/main.py — no production data
+    # import required to test auth.
+    #
+    # WHY ABSOLUTE PATH (not the old `./data/dev` relative form):
+    # The relative path was resolved against the docker-compose file's
+    # directory, which works fine in a regular checkout but is a footgun
+    # when running from a git worktree. If `git worktree remove` runs
+    # while the container is alive, the bind mount silently re-points
+    # at a stub directory under the deleted worktree path. The
+    # container keeps reporting `/health` healthy (the endpoint is
+    # static and never touches the DB) while writes go nowhere visible
+    # and the next restart loses the seed. WHO-49 Phase 1 hit this exact
+    # zombie state during cleanup. An absolute path under $HOME survives
+    # any worktree lifecycle, repo clone move, or branch switch.
+    #
+    # TRADEOFF NOTE (vs the old named volume this file used to use):
+    # A bind mount re-exposes the macOS fcntl/SQLite corruption risk
+    # the named volume was solving. This is a conscious call:
+    #   - The dev DB is disposable; re-seed is ~2 seconds on restart.
+    #   - The old named volume failed differently and more often:
+    #     Docker Desktop prune or restart silently wiped it, requiring
+    #     a 15-step manual recovery runbook (see MEMORY.md).
+    #   - Bind mount enables direct
+    #     `sqlite3 ~/whoseonfirst-dev-data/whoseonfirst.db` inspection
+    #     from the host for WHO-45 screenshot data setup.
+    #   - Recovery from corruption: `rm -rf ~/whoseonfirst-dev-data &&
+    #     docker-compose -f docker-compose.dev.yml restart`.
+    # Revisit if corruption starts happening in practice.
+    #
+    # First-time setup: `mkdir -p ~/whoseonfirst-dev-data` before the
+    # first `docker-compose up` (Docker will create it otherwise but
+    # with root ownership on some setups).
     volumes:
-      # CRITICAL: Use named volume for database to prevent macOS SQLite corruption
-      # macOS fcntl locking WILL corrupt SQLite on Docker restart if bind-mounted
-      - whoseonfirst-dev-db:/app/data
+      - "${HOME:?HOME must be set for the dev bind mount}/whoseonfirst-dev-data:/app/data"
 
-      # Mount source code for development (optional - enable for hot reload)
-      # - ./src:/app/src:ro
-      # - ./frontend:/app/frontend:ro
-
-    # Environment variables
+    # Environment — all values set explicitly, NOTHING loaded from the
+    # production `.env` file. The `env_file: - .env` directive has been
+    # deliberately REMOVED to prevent production Twilio credentials from
+    # leaking into this container.
+    #
+    # OPTIONAL: uncomment the stanza below to additionally load `.env.dev`
+    # (gitignored, see .env.dev.example for the template). Useful for the
+    # real-sms-test runbook (WHO-49 Phase 3) or adjusting NOTIFICATION_HOUR
+    # on the fly without rebuilding. Any key defined in .env.dev will
+    # override the inline `environment:` values below.
+    # env_file:
+    #   - .env.dev
     environment:
+      # Database
       - DATABASE_URL=sqlite:///./data/whoseonfirst.db
+
+      # Web server
       - HOST=0.0.0.0
       - PORT=8000
-      - LOG_LEVEL=DEBUG  # More verbose logging for development
+      - LOG_LEVEL=DEBUG
 
-      # Twilio configuration (from .env file)
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      # SMS safety rail — THIS IS THE CRITICAL LINE.
+      # SMSService reads this env var at init (src/services/sms_service.py)
+      # and short-circuits Twilio client initialization when truthy. All
+      # notification paths will log `[MOCK] Sending SMS...` instead of
+      # calling Twilio. Do NOT remove this line without a spec.
+      - SMS_MOCK_MODE=true
 
-      # SMS notification schedule
-      - NOTIFICATION_TIMEZONE=${NOTIFICATION_TIMEZONE:-America/Chicago}
-      - NOTIFICATION_HOUR=${NOTIFICATION_HOUR:-8}
-      - NOTIFICATION_MINUTE=${NOTIFICATION_MINUTE:-0}
+      # Twilio placeholders — intentionally fake. Defense in depth:
+      # SMS_MOCK_MODE=true above short-circuits Twilio client init entirely,
+      # so these values are never read during normal operation. If something
+      # later flipped SMS_MOCK_MODE=false, these non-empty placeholders
+      # WOULD pass the "all three present" check in SMSService.__init__,
+      # but the Twilio SDK would then reject them with a 401 on the first
+      # real API call — a loud failure, not a silent message delivery.
+      # Two independent walls, neither enough on its own: (1) no twilio_client
+      # object exists while mock mode is on, (2) fake SID would 401 if it did.
+      - TWILIO_ACCOUNT_SID=ACdev_mock_account_sid_not_real
+      - TWILIO_AUTH_TOKEN=dev_mock_auth_token_not_real
+      - TWILIO_PHONE_NUMBER=+15550000000
 
-      # Security
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      # Notification scheduling — keep the production schedule so the
+      # scheduler actually fires and you can observe the `[MOCK]` log line.
+      - NOTIFICATION_TIMEZONE=America/Chicago
+      - NOTIFICATION_HOUR=8
+      - NOTIFICATION_MINUTE=0
 
-    # Load environment from .env file
-    env_file:
-      - .env
+      # Dev-only secret key — do NOT copy this value to production.
+      - SECRET_KEY=dev-only-secret-key-do-not-use-in-production
 
-    # Health check
+    # Health check — hits the app's /health endpoint
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -61,26 +144,19 @@ services:
       retries: 3
       start_period: 40s
 
-    # Logging configuration
+    # Logging
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-    # Network
+    # Isolated network
     networks:
       - whoseonfirst-dev-network
 
-    # Grace period for clean shutdown
     stop_grace_period: 30s
 
-# Named volume for database (prevents macOS corruption)
-volumes:
-  whoseonfirst-dev-db:
-    driver: local
-
-# Network definition
 networks:
   whoseonfirst-dev-network:
     driver: bridge

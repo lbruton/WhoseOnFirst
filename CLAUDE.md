@@ -4,9 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > See `~/.claude/CLAUDE.md` for global workflow rules (push safety, version checkout gate, PR lifecycle, MCP tools, code search tiers, UI design workflow, plugins).
 
-## Push Policy (overrides global)
+## Branch & Push Policy (overrides global)
 
-Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs are optional — use them for features or anything that warrants a review trail. No version lock, no Codacy gate on pushes.
+**Default branch is `dev`** — both locally and as the PR target. `main` is the production branch and is only updated via a deliberate `dev → main` PR during a scheduled maintenance window (see WHO-49). The Portainer GitOps stack auto-deploys from `main`, so any push to `main` fires real SMS at real coworkers on the next scheduler tick.
+
+- **All work happens on `dev`** (or worktrees branched off `dev`).
+- **Both `main` and `dev` require PRs** — direct push is blocked by GitHub repository rules on both branches. Always work in a worktree off `dev` and open a PR targeting `dev`.
+- **`dev → main` PRs** are only opened when shipping to production. The user will explicitly say "ship" or "release" — never open or merge a `dev → main` PR without that signal.
+- **Never push directly to `main` or `dev`.** Both will be rejected by branch protection; even if they weren't, `main` would deploy to production immediately.
+- No version lock, no Codacy gate on PRs.
+
+**Before any code change:** verify you are on `dev` (or a worktree off `dev`), not `main`. If you find yourself on `main`, stop and switch.
 
 ## Quick Start
 
@@ -18,8 +26,6 @@ Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs
 - Frontend: 100% (8 pages with live data)
 - Testing: 288 tests, 85% coverage
 - Deployment: Docker containerized
-
-**Blocker:** Twilio US number approval (~1 week wait)
 
 **Next Phase:** Docker offline installer + Authentication system
 
@@ -35,31 +41,13 @@ Direct push to `main` is allowed for small fixes (CSS, copy, config tweaks). PRs
 
 Technical documentation lives in **DocVault** at `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/`. Read relevant pages before discussing architecture or planning changes.
 
-Key pages: `Overview.md`, Issues directory.
+Key pages: Start at `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/_Index.md` and follow the index.
 
 ```
 Read /Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/Overview.md
 ```
 
 When making changes that affect documented behavior, run `/vault-update` before pushing.
-
-## Documentation Hierarchy
-
-```text
-DocVault (Primary Docs) + mem0 (Session Context)
-  ↓ references
-/docs/planning/PRD.md (Living Requirements)
-  ↓ informs
-CLAUDE.md (This File - AI Context)
-  ↓ generates
-CHANGELOG.md (Version History)
-  ↓ summarizes
-README.md (User-Facing)
-```
-
-**Full Documentation Guide:** `/docs/DOCUMENTATION_GUIDE.md`
-
----
 
 ## Project Architecture
 
@@ -161,20 +149,6 @@ All APIs under `/api/v1/` prefix:
 
 ---
 
-## Common Patterns
-
-### Repository Pattern
-
-```python
-class TeamMemberRepository(BaseRepository[TeamMember]):
-    def get_active(self) -> List[TeamMember]:
-        return self.db.query(self.model).filter(
-            self.model.is_active == True
-        ).all()
-```
-
----
-
 ## Important Constraints
 
 1. **Timezone:** Always use America/Chicago (CST/CDT) via `pytz`
@@ -187,24 +161,15 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
 
 ## Common Pitfalls (Avoid These)
 
-- Using system cron → Use APScheduler
-- Hardcoding timezones → Use `timezone('America/Chicago')`
-- Skipping phone validation → Validate E.164 format
-- Missing indexes → Index frequently queried fields
-- Regenerating entire schedule → Regenerate from change date forward
-- Storing secrets in code → Use environment variables
+- Using system cron → Use APScheduler (project standard)
+- Hardcoding timezones → Use `timezone('America/Chicago')` (CST/CDT)
+- Regenerating entire schedule → Regenerate from change date forward only
 
 ---
 
 ## RPI Workflow (Research → Plan → Implement)
 
-**WhoseOnFirst uses RPI** — a lightweight 3-phase process adapted from HexTrackr. This is a project-specific override to the global spec-workflow.
-
-**Phase 1: RESEARCH** (30-90 min) — Document current state with file:line references
-**Phase 2: PLAN** (30-60 min) — Break into 3-10 tasks, write before/after snippets
-**Phase 3: IMPLEMENT** (1-3 hours) — Execute with Docker rebuild checkpoints
-
-**Full Process:** `/docs/RPI_PROCESS.md`
+WhoseOnFirst uses **RPI** — a lightweight 3-phase process (Research → Plan → Implement). This is a project-specific override to the global spec-workflow. Full process: `/docs/RPI_PROCESS.md`
 
 ---
 
@@ -222,18 +187,6 @@ Issues tracked in DocVault vault. Prefix: `WHO` (see `issue` skill).
 **Phase 4: Advanced Features** — FUTURE
 
 ---
-
-## When Creating New Code
-
-1. Follow layered architecture (API → Service → Repository)
-2. Use type hints everywhere (MyPy validation)
-3. Write tests first (especially critical paths)
-4. Handle timezones explicitly (America/Chicago)
-5. Log important events with context
-6. Validate all inputs (Pydantic models)
-7. Use dependency injection (FastAPI `Depends()`)
-
-
 
 ## Code Search
 
