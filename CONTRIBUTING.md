@@ -7,7 +7,7 @@ Thanks for your interest in contributing!
 1. Fork the repository
 2. Create a feature branch from `dev`
 3. Make your changes
-4. Run tests: `pytest --cov=src`
+4. Run tests: `pytest`
 5. Open a pull request targeting `dev`
 
 ## Development Setup
@@ -23,7 +23,7 @@ docker-compose -f docker-compose.dev.yml up -d
 # Or local virtualenv
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 ## Branch Strategy
@@ -45,7 +45,7 @@ pip install -r requirements.txt
 Maintain 80%+ test coverage. Run the full suite before submitting:
 
 ```bash
-pytest --cov=src --cov-report=html
+pytest
 ```
 
 ## Commit Messages
