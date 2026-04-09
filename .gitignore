@@ -63,6 +63,13 @@ HANDOFF.md
 
 # Claude Code local configuration (keep local, not for deployment)
 .claude/
+CLAUDE.md
+ROADMAP.md
+
+# E2E / Playwright test tooling (local dev only)
+.playwright-mcp/
+playwright.config.js
+e2e/
 
 # Documentation (keep local for reference, not needed in deployment)
 docs/
