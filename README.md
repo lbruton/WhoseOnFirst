@@ -15,7 +15,7 @@
 
 ---
 
-WhoseOnFirst manages shift assignments and sends daily SMS notifications to on-call team members. The system uses a circular rotation algorithm to ensure fair, predictable shift distribution across a 7-person technical support team.
+WhoseOnFirst manages shift assignments and sends daily SMS notifications to on-call team members. The system uses a circular rotation algorithm to ensure fair, predictable shift distribution.
 
 ## Features
 
