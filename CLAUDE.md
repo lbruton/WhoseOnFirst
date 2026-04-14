@@ -107,12 +107,41 @@ docker-compose -f docker-compose.dev.yml build
 docker-compose -f docker-compose.dev.yml up -d
 ```
 
+### Dev Database — ALWAYS Use Sanitized Seed
+
+**Production data lives in the Portainer container only.** Local Mac dev builds must NEVER use real production data.
+
+The sanitized seed DB lives at:
+```
+~/whoseonfirst-dev-data/backups/dev-seed-sanitized.stvault
+```
+
+**Before starting a local dev session**, if `~/whoseonfirst-dev-data/whoseonfirst.db` is missing or empty:
+
+```bash
+cp ~/whoseonfirst-dev-data/backups/dev-seed-sanitized.stvault \
+   ~/whoseonfirst-dev-data/whoseonfirst.db
+docker restart whoseonfirst-dev
+```
+
+**Never restore from real production backups** (`~/Nextcloud/Backups/whoseonfirst/`) into the local dev container. Those files contain real names and phone numbers and belong in Nextcloud only — out of the dev environment entirely.
+
 ### Testing (Local Environment)
 
 ```bash
 source venv/bin/activate
 pytest --cov=src --cov-report=html
 ```
+
+---
+
+## Production Debugging
+
+Production runs on Portainer VM `192.168.1.81` (stack #12) behind Cloudflare Zero Trust Access. Use `docker --context portainer <cmd>` for remote docker ops — no SSH needed.
+
+- **Always filter healthcheck noise from logs** (~99% of output): `docker --context portainer logs whoseonfirst --since 24h 2>&1 | grep -v "GET /health"`
+- **"Can't log in" + container healthy + zero POSTs in filtered logs** = Cloudflare Zero Trust session expired. Requests never reach FastAPI. Fix is user-side CF re-auth, not a code change.
+- **Production admin password is NOT documented anywhere.** The `Admin123!` credential in auto-memory is **local dev container recovery only** — do not test it against production expecting it to work.
 
 ---
 
@@ -164,6 +193,7 @@ All APIs under `/api/v1/` prefix:
 - Using system cron → Use APScheduler (project standard)
 - Hardcoding timezones → Use `timezone('America/Chicago')` (CST/CDT)
 - Regenerating entire schedule → Regenerate from change date forward only
+- Restoring real production DB into dev → Use sanitized seed only (see Dev Database section above)
 
 ---
 
@@ -187,6 +217,10 @@ Issues tracked in DocVault vault. Prefix: `WHO` (see `issue` skill).
 **Phase 4: Advanced Features** — FUTURE
 
 ---
+
+## Hooks
+
+- **gitleaks**: Pre-commit hook scans for accidental secret commits (`github-pat`, `aws`, `stripe`, etc.). Runs via `pre-commit` framework. Installed 2026-04-14 (OPS-116).
 
 ## Code Search
 
