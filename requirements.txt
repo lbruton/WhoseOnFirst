@@ -22,7 +22,7 @@ pydantic==2.8.2
 pydantic-settings==2.2.1
 
 # Utilities
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 httpx==0.25.2  # Async HTTP client
 
 # Security
