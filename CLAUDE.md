@@ -16,18 +16,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Before any code change:** verify you are on `dev` (or a worktree off `dev`), not `main`. If you find yourself on `main`, stop and switch.
 
+## DEV DB — DO NOT RESTORE FROM PROD
+
+The dev environment uses **sanitized data only**. Production databases contain real names and phone numbers.
+
+- **NEVER** copy from `~/Nextcloud/Backups/whoseonfirst/` or production `.stvault` files into the dev environment.
+- **Correct procedure:** rebuild from `~/whoseonfirst-dev-data/backups/dev-seed-sanitized.stvault` or let first-boot auto-seed handle it.
+- `docker-compose.dev.yml` enforces safety rails: `SMS_MOCK_MODE=true`, no shared `.env` with production.
+- **Why this guardrail exists:** an AI agent once restored the production database over the dev environment, exposing real PII to a local container with mock security. This must not recur.
+
 ## Quick Start
 
 **Project:** WhoseOnFirst - Automated on-call rotation and SMS notification system for 7-person technical team
 
-**Current Status:** Phase 1 MVP Complete
-
-- Backend: 100% (FastAPI/APScheduler/Twilio)
-- Frontend: 100% (8 pages with live data)
-- Testing: 288 tests, 85% coverage
-- Deployment: Docker containerized
-
-**Next Phase:** Docker offline installer + Authentication system
+- Backend: FastAPI / APScheduler / Twilio
+- Frontend: 8 pages with live data (Tabler.io / Bootstrap 5)
+- Testing: 467+ tests
+- Deployment: Docker containerized (Portainer GitOps on production)
 
 **Work From:**
 
@@ -43,7 +48,7 @@ Technical documentation lives in **DocVault** at `/Volumes/DATA/GitHub/DocVault/
 
 Key pages: Start at `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/_Index.md` and follow the index.
 
-```bash
+```
 Read /Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/Overview.md
 ```
 
@@ -85,7 +90,7 @@ Database (SQLite → PostgreSQL path)
 
 **Backend:** FastAPI 0.115+, SQLAlchemy 2.0+, APScheduler 3.10+, Twilio SDK 9.2+, Uvicorn 0.30+
 
-**Database:** Phase 1: SQLite (`./data/whoseonfirst.db`), Phase 2+: PostgreSQL migration path
+**Database:** SQLite (`./data/whoseonfirst.db`)
 
 **Frontend:** Tabler.io 1.0.0-beta20 (Bootstrap 5), Vanilla JavaScript, 16-color WCAG AA team member system
 
@@ -112,7 +117,7 @@ docker-compose -f docker-compose.dev.yml up -d
 **Production data lives in the Portainer container only.** Use sanitized seed data for local Mac dev builds.
 
 The sanitized seed DB lives at:
-```text
+```
 ~/whoseonfirst-dev-data/backups/dev-seed-sanitized.stvault
 ```
 
@@ -173,7 +178,7 @@ All APIs under `/api/v1/` prefix:
 
 ## Testing Requirements
 
-**Current Coverage:** 85% (288 tests), Rotation algorithm: 100%, Critical paths: 100%
+**Baseline:** 467+ tests. Rotation algorithm: 100%, Critical paths: 100%
 **Target:** Maintain 80%+ coverage
 
 ---
@@ -206,15 +211,6 @@ WhoseOnFirst uses **RPI** — a lightweight 3-phase process (Research → Plan �
 ## Issue Tracking
 
 Issues tracked in DocVault vault. Prefix: `WHO` (see `issue` skill).
-
----
-
-## Project Phases
-
-**Phase 1: MVP** — COMPLETE
-**Phase 2: Deployment & Auth** — IN PLANNING
-**Phase 3: Enhancements** — PLANNED
-**Phase 4: Advanced Features** — FUTURE
 
 ---
 
