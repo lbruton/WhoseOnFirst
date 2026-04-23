@@ -61,9 +61,15 @@ venv.bak/
 HANDOFF.md
 .mcp.json
 
-# Claude Code local configuration (keep local, not for deployment)
-.claude/
-CLAUDE.md
+# AI tooling local config (keep local, not for deployment)
+# Root-level instruction files (CLAUDE.md / AGENTS.md / GEMINI.md) ARE tracked —
+# they describe the project. Only the tool-specific config dirs stay local.
+.claude/*
+!.claude/project.json
+.gemini/
+.codex/
+.kimi/
+.opencode/
 ROADMAP.md
 
 # E2E / Playwright test tooling (local dev only)
