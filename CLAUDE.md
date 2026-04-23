@@ -146,7 +146,7 @@ Production runs on Portainer VM `192.168.1.81` (stack #12) behind Cloudflare Zer
 
 - **Filter healthcheck noise from logs** (~99% of output): `docker --context portainer logs whoseonfirst --since 24h 2>&1 | grep -v "GET /health"`
 - **"Can't log in" + container healthy + zero POSTs in filtered logs** = Cloudflare Zero Trust session expired. Requests never reach FastAPI. Fix is user-side CF re-auth, not a code change.
-- **Production admin password is not documented anywhere.** The `Admin123!` credential in auto-memory applies only to local dev container recovery — use it only for local dev, not against production.
+- **Production admin password is not documented anywhere.** Dev container credentials are in auto-memory (MEMORY.md) — use only for local dev, never against production.
 
 ---
 
