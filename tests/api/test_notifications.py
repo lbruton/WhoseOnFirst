@@ -5,7 +5,7 @@ Tests cover notification message retrieval, including mock mode behavior.
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 
 from src.models.notification_log import NotificationLog
@@ -23,14 +23,14 @@ class TestGetNotificationMessageMockMode:
         The /message endpoint should detect mock mode and return mock data
         rather than crashing with AttributeError on NoneType.
 
-        This test proves the bug: current code at notifications.py:270 calls
+        Before the fix, the code at notifications.py:270 called
         sms_service.twilio_client.messages(...).fetch() unconditionally,
-        which raises AttributeError when twilio_client is None.
+        which raised AttributeError when twilio_client was None.
         """
         # Create a notification log entry with a fake Twilio SID
         log = NotificationLog(
             schedule_id=None,
-            sent_at=datetime.utcnow(),
+            sent_at=datetime.now(timezone.utc),
             status="sent",
             twilio_sid="SM1234567890abcdef1234567890abcdef",
             recipient_name="Test User",
