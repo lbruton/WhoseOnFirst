@@ -210,7 +210,9 @@ WhoseOnFirst uses **RPI** — a lightweight 3-phase process (Research → Plan �
 
 ## Issue Tracking
 
-Issues tracked in DocVault vault. Prefix: `WHO` (see `issue` skill).
+WhoseOnFirst issues use the `WOF-` prefix and are tracked in Plane: <https://plane.lbruton.cc/lbruton/projects/a5951628-b52b-4224-bee6-87b513fa6e7b/>.
+
+Migrated to Plane on 2026-04-27 (was `WHO-` in DocVault, historical max WHO-54). The pre-Plane DocVault issue archive lives at `DocVault/Archive/Issues-Pre-Plane/WhoseOnFirst/` — open issues at migration time were renumbered WHO-43→WOF-1, WHO-44→WOF-2, WHO-47→WOF-3, WHO-51→WOF-4, WHO-53→WOF-5, WHO-54→WOF-6 (see each archived file's `migrated_to` frontmatter for the mapping). Closed and cancelled issues remain in the archive only and were not recreated in Plane. New issues are created via `/issue` (which dispatches on `.specflow/config.json` `issue_backend`) or directly via `mcp__plane__create_issue`.
 
 ---
 
