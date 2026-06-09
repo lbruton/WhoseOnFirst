@@ -124,8 +124,13 @@ class RotationAlgorithmService:
                 "No active team members available for rotation"
             )
 
-        # Get shifts (ordered by shift_number)
-        shifts = self.shift_repo.get_all_ordered()
+        # Order shifts by chronological day of week, NOT by shift_number.
+        # shift_number is a free-form user label that can drift out of day order
+        # when shifts are removed and re-added in the admin UI (WOF-8) — a Tuesday
+        # shift can end up numbered after Sunday. Each shift's calendar date is
+        # derived from day_of_week, so day order is the correct rotation order;
+        # ordering by shift_number would silently assign members to the wrong days.
+        shifts = self._order_shifts_by_day(self.shift_repo.get_all_ordered())
         if not shifts:
             raise NoShiftsConfiguredError(
                 "No shifts configured. Please create shifts before generating rotation."
@@ -173,6 +178,28 @@ class RotationAlgorithmService:
                 schedule_entries.append(entry)
 
         return schedule_entries
+
+    def _order_shifts_by_day(self, shifts: List) -> List:
+        """
+        Order shifts by chronological day of week (Monday first).
+
+        shift_number is a user-facing label and is NOT guaranteed to follow day
+        order: a shift removed and re-added in the admin UI gets the next free
+        number, which can place a Tuesday shift after Sunday (WOF-8). The rotation
+        must walk shifts in true weekday order so members map to the correct days.
+        Double shifts like "Tuesday-Wednesday" sort by their first day. Python's
+        sort is stable, so shifts sharing a first day keep their incoming order.
+
+        Args:
+            shifts: List of Shift objects
+
+        Returns:
+            New list sorted by weekday offset (Monday=0 ... Sunday=6)
+        """
+        return sorted(
+            shifts,
+            key=lambda s: self.DAY_OFFSET_MAP[s.day_of_week.split('-')[0]]
+        )
 
     def _validate_inputs(self, start_date: datetime, weeks: int) -> None:
         """
