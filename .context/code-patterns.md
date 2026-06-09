@@ -890,9 +890,9 @@ class TeamMemberResponse(BaseModel):
 
 ## Additional Resources
 
-- **Architecture Documentation:** `/docs/planning/architecture.md`
-- **Technology Stack:** `/docs/planning/technical-stack.md`
-- **Development Workflow:** `/docs/RPI_PROCESS.md`
+- **Architecture Documentation:** `.context/architecture.md`
+- **Technology Stack:** `.context/technical-stack.md`
+- **Development Workflow:** `.context/rpi-process.md`
 - **Testing Guide:** `/tests/README.md` (if it exists)
 
 **Last Updated:** 2025-11-10

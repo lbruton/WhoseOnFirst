@@ -14,7 +14,7 @@ Updates version in:
 - src/main.py (FastAPI app + API endpoint)
 - frontend/components/sidebar.html (footer badge)
 - CLAUDE.md (multiple locations)
-- All docs/ files
+- Foundation docs (.context/ files)
 - CHANGELOG.md (creates new release entry)
 """
 
