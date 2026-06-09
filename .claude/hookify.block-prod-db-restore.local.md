@@ -11,6 +11,7 @@ BLOCKED: Restoring production backups to dev environment is prohibited (WHO-49 g
 The Opus incident showed AI agents will overwrite dev data with production backups if not blocked.
 
 Correct procedure:
+
 - Let first-boot auto-seed (admin/Admin123!, viewer/User123!)
 - Or import sanitized seed: `~/whoseonfirst-dev-data/backups/dev-seed-sanitized.stvault`
 - NEVER use files from `~/Nextcloud/Backups/whoseonfirst/` or production `.db` files

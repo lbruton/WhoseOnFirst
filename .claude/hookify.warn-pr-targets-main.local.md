@@ -2,7 +2,7 @@
 name: warn-pr-targets-main
 enabled: true
 event: bash
-pattern: gh\s+pr\s+create\s+.*--base\s+main
+pattern: gh\s+pr\s+create\s+.*(?:-B|--base)\s+main
 action: warn
 ---
 

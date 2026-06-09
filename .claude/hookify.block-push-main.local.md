@@ -2,7 +2,7 @@
 name: block-push-main
 enabled: true
 event: bash
-pattern: git\s+push\s+\S+\s+main\b
+pattern: git\s+push\b.*\smain(?:\s|$)
 action: block
 ---
 

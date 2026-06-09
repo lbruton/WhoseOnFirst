@@ -2,7 +2,7 @@
 name: block-live-twilio-creds
 enabled: true
 event: file
-pattern: TWILIO_ACCOUNT_SID\s*=\s*AC[a-f0-9]|TWILIO_AUTH_TOKEN\s*=\s*[a-f0-9]{20,}
+pattern: TWILIO_ACCOUNT_SID\s*=\s*AC[a-f0-9]{32}|TWILIO_AUTH_TOKEN\s*=\s*[a-f0-9]{32}
 action: block
 ---
 

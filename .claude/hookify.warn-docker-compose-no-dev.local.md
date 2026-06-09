@@ -2,7 +2,7 @@
 name: warn-docker-compose-no-dev
 enabled: true
 event: bash
-pattern: docker.compose\s+up(?!.*-f\s+docker-compose\.dev\.yml)
+pattern: docker[-\s]compose\s+up(?!.*-f\s+docker-compose\.dev\.yml)
 action: warn
 ---
 

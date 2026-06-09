@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 
-PROJECT_DIR = "/Volumes/DATA/GitHub/WhoseOnFirst"
+PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TIMEOUT = 15
 
 
