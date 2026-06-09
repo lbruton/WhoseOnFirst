@@ -1,4 +1,5 @@
 # Authentication System Specification
+
 **Version:** 2.0
 **Date:** 2025-11-09
 **Status:** Production-Ready Design
@@ -8,6 +9,7 @@
 ## 1. Technology Stack
 
 ### Password Encryption
+
 - **Algorithm:** Argon2id (via `argon2-cffi`)
 - **Parameters:** OWASP 2025 recommended configuration
   - Time cost: 2 iterations
@@ -49,6 +51,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 ```
 
 ### Session Management
+
 - **Method:** HTTP-only cookies (not localStorage)
 - **Cookie Name:** `session`
 - **Cookie Attributes:**
@@ -67,12 +70,12 @@ def verify_password(plain: str, hashed: str) -> bool:
 ```
 
 ### Backend Stack
+
 - **Framework:** FastAPI 0.115.0+
 - **Database:** SQLite (Phase 1) → PostgreSQL (Phase 2+)
 - **ORM:** SQLAlchemy 2.0.31+
 - **Dependencies:**
-  - `passlib[bcrypt]` - Password hashing
-  - `python-jose` - NOT USED (we use simple cookies)
+  - `argon2-cffi` - Password hashing (Argon2id)
   - `python-multipart` - Form data parsing
 
 ---
@@ -80,6 +83,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 ## 2. Authentication Flow Diagrams
 
 ### 2.1 Login Flow
+
 ```
 ┌──────────┐                 ┌──────────┐              ┌──────────┐
 │          │                 │          │              │          │
@@ -104,7 +108,7 @@ def verify_password(plain: str, hashed: str) -> bool:
      │                            │ User record + hash      │
      │                            │<────────────────────────┤
      │                            │                         │
-     │                            │ bcrypt.checkpw()        │
+     │                            │ PasswordHasher.verify() │
      │                            │ (verify password)       │
      │                            │                         │
      │ 200 OK                     │                         │
@@ -117,6 +121,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 ```
 
 ### 2.2 Page Access Flow (Every Page)
+
 ```
 ┌──────────┐                 ┌──────────┐              ┌──────────┐
 │  Browser │                 │  FastAPI │              │ Database │
@@ -161,6 +166,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 ```
 
 ### 2.3 Unauthenticated Access
+
 ```
 ┌──────────┐                 ┌──────────┐
 │  Browser │                 │  FastAPI │
@@ -190,6 +196,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 ## 3. UI Modifications & Mockups
 
 ### 3.1 Navigation Sidebar (All Pages)
+
 **Current:** No user display
 **New Design:**
 
@@ -230,12 +237,15 @@ VIEWER ROLE:
 ```
 
 ### 3.2 Login Page Redesign
+
 **Remove:**
+
 - Purple gradient background
 - "Remember me" checkbox
 - Default credentials display
 
 **New Design (Tabler.io Standard):**
+
 ```
 ┌────────────────────────────────────────────────────────┐
 │                                                        │
@@ -269,6 +279,7 @@ NO default credentials shown in UI
 ## 4. Security Requirements
 
 ### 4.1 Unauthenticated Access Prevention
+
 **Rule:** Unauthenticated users can ONLY access `/login.html`
 
 **Implementation:**
@@ -299,6 +310,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 ```
 
 ### 4.2 API Endpoint Protection
+
 **All** API endpoints except `/api/v1/auth/login` require authentication.
 
 ```python
@@ -312,11 +324,14 @@ window.addEventListener('DOMContentLoaded', async function() {
 ```
 
 ### 4.3 Role-Based UI Restrictions
+
 **Admin Role:**
+
 - Sees ALL buttons (Add, Edit, Delete, Generate, etc.)
 - Can change password via Settings modal
 
 **Viewer Role:**
+
 - NO create/edit/delete buttons visible
 - Settings modal shows "Read-only user - password cannot be changed"
 - Form submissions blocked with alert: "You do not have permission"
@@ -326,16 +341,19 @@ window.addEventListener('DOMContentLoaded', async function() {
 ## 5. Implementation Checklist
 
 ### Phase 1: Rollback Broken Code ✅
+
 - [x] Backend auth is working (already tested with curl)
 - [x] Need to fix frontend auth guards
 
 ### Phase 2: Fix Frontend Auth Guards
+
 - [ ] Update all 5 pages with correct cookie-based auth check
 - [ ] Remove localStorage references
 - [ ] Use `/api/v1/auth/me` endpoint for auth validation
 - [ ] Test: Unauthenticated user redirects to login
 
 ### Phase 3: Add User Menu to Sidebar
+
 - [ ] Add user dropdown at bottom of sidebar (all 5 pages)
 - [ ] Show username from current user
 - [ ] Dropdown options:
@@ -345,6 +363,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 - [ ] Test: Dropdown works, logout clears cookie
 
 ### Phase 4: Redesign Login Page
+
 - [ ] Remove purple gradient (use white background)
 - [ ] Remove "Remember Me" checkbox
 - [ ] Remove default credentials display
@@ -352,6 +371,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 - [ ] Test: Login still works
 
 ### Phase 5: Fix Password Change
+
 - [ ] Remove "Remember Me" functionality from backend
 - [ ] Session cookies expire on browser close (no max_age)
 - [ ] Settings modal - admin can change password
@@ -359,11 +379,13 @@ window.addEventListener('DOMContentLoaded', async function() {
 - [ ] Test: Admin can change, viewer cannot
 
 ### Phase 6: Role-Based UI
+
 - [ ] Hide all `.admin-only` buttons for viewers
 - [ ] Disable form submissions for viewers
 - [ ] Test: Viewer sees read-only UI
 
 ### Phase 7: Integration Testing
+
 - [ ] Login as admin → see all features
 - [ ] Login as viewer → see read-only features
 - [ ] Close browser → session expires
@@ -374,6 +396,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 ## 6. Expected Outcomes
 
 ### ✅ Success Criteria
+
 1. **Zero UI Access Without Login:**
    - Visiting any page (/, /team-members.html, etc.) without auth → redirects to /login.html
    - No data loads, no placeholders show
@@ -401,11 +424,13 @@ window.addEventListener('DOMContentLoaded', async function() {
 ## 7. Technical Notes
 
 ### Why Cookies Over localStorage?
+
 - **XSS Protection:** HttpOnly cookies cannot be accessed by JavaScript
 - **Industry Standard:** OAuth2 best practices recommend cookies for web apps
 - **CSRF Protection:** SameSite=Lax prevents cross-site request forgery
 
 ### Why Argon2id Over bcrypt?
+
 - **OWASP 2025:** #1 recommended algorithm (bcrypt is "legacy systems only")
 - **Memory-Hard:** Resistant to GPU/FPGA/ASIC attacks (bcrypt is only CPU-hard)
 - **No Password Limit:** bcrypt truncates at 72 bytes, Argon2id has no limit
@@ -413,6 +438,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 - **Python 3.13 Compatible:** No compatibility issues (bcrypt 5.0+ breaks with passlib)
 
 ### Why Session-Only Cookies?
+
 - **Security:** Reduces attack window
 - **User Expectation:** Corp environments expect session expiry
 - **Compliance:** Meets most security audit requirements
@@ -422,6 +448,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 ## 8. Files to Modify
 
 ### Backend (Already Done ✅)
+
 - `src/models/user.py` ✅
 - `src/repositories/user_repository.py` ✅
 - `src/auth/utils.py` ✅
@@ -429,6 +456,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 - All route files (team_members, shifts, schedules, notifications) ✅
 
 ### Frontend (Needs Fixes)
+
 - `frontend/login.html` - Redesign, remove remember_me
 - `frontend/index.html` - Fix auth guard
 - `frontend/team-members.html` - Fix auth guard

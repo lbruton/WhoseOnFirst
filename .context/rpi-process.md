@@ -1,6 +1,6 @@
 # RPI Process Guide for WhoseOnFirst
 
-**Research → Plan → Implement**
+> Research → Plan → Implement
 
 ## Overview
 
@@ -9,6 +9,7 @@ The RPI (Research-Plan-Implement) process is a lightweight 3-phase workflow desi
 ### When to Use RPI
 
 Use RPI for:
+
 - **Bug Fixes**: Broken functionality that needs correction
 - **Enhancements**: Improvements to existing features
 - **Technical Debt**: Code quality improvements
@@ -29,6 +30,7 @@ For major new features (Phase 2+), consider the full SRPI process (Specification
 **Use these tools FIRST before manual file operations**:
 
 1. **`mcp__claude-context__search_code`** - Semantic codebase search
+
    ```javascript
    mcp__claude-context__search_code({
      path: "/Volumes/DATA/GitHub/WhoseOnFirst",
@@ -36,10 +38,12 @@ For major new features (Phase 2+), consider the full SRPI process (Specification
      limit: 10
    })
    ```
+
    - **Returns**: Exact file:line locations
    - **Token savings**: 80-90% vs manual Grep/Read
 
 2. **`mcp__memento__semantic_search`** - Historical knowledge
+
    ```javascript
    mcp__memento__semantic_search({
      query: "schedule auto-renewal pattern",
@@ -47,13 +51,14 @@ For major new features (Phase 2+), consider the full SRPI process (Specification
      min_similarity: 0.6
    })
    ```
+
    - **Returns**: Past decisions and patterns
    - **Token savings**: 90%+ vs reading session logs
 
 3. **`mcp__sequential-thinking__sequentialthinking`** - Complex problems
    - Use for breaking down multi-step architectural questions
 
-### Process
+### Research Process
 
 1. **Search codebase semantically** (claude-context) for affected files
 2. **Query Memento** (semantic_search) for related patterns
@@ -63,7 +68,7 @@ For major new features (Phase 2+), consider the full SRPI process (Specification
 6. **Identify risks** and safeguards
 7. **Estimate scope**: Can this be done in 1-2 Docker rebuild cycles?
 
-### Outputs
+### Research Outputs
 
 - **Current State Summary**: File locations with line numbers (from claude-context)
 - **Impacted Files List**: What will change
@@ -89,7 +94,7 @@ For major new features (Phase 2+), consider the full SRPI process (Specification
 **Linear Issue**: `PLAN: <feature name>` (child of RESEARCH)
 **Goal**: Break down implementation into concrete tasks
 
-### Process
+### Plan Process
 
 1. **Create task table** with: ID, Step, Est (min), Files, Validation, Risk
 2. **Estimate task sizes** (target 15-60 minutes per task)
@@ -109,6 +114,7 @@ For major new features (Phase 2+), consider the full SRPI process (Specification
 ### Before/After Example
 
 **Task 1.1 - Add auto-renewal check function**:
+
 ```python
 # Before: No auto-renewal logic exists
 
@@ -128,7 +134,7 @@ def check_auto_renewal() -> None:
         # Implementation...
 ```
 
-### Outputs
+### Plan Outputs
 
 - **Task table** with 3-10 actionable tasks
 - **Before/after code** for each task
@@ -183,7 +189,7 @@ docker-compose -f docker-compose.dev.yml up -d
 docker-compose -f docker-compose.dev.yml logs -f
 ```
 
-### Process
+### Implement Process
 
 1. **Verify clean worktree**: `git status` must be clean
 2. **Create safety commit** (optional): `git commit -m "🔐 pre-work snapshot (WHO-XX)"`
@@ -215,7 +221,7 @@ docker-compose -f docker-compose.dev.yml build
 docker-compose -f docker-compose.dev.yml up -d
 ```
 
-### Outputs
+### Implement Outputs
 
 - **Completed code changes** (all PLAN tasks executed)
 - **Git commits** (every 1-3 tasks)
@@ -288,6 +294,7 @@ docker ps | grep whoseonfirst-dev
 ### Anti-Patterns (Avoid These)
 
 ❌ **Reading multiple files speculatively**
+
 ```javascript
 // Don't do this:
 Read('src/scheduler/schedule_manager.py')  // 200 lines
@@ -297,6 +304,7 @@ Read('src/models/schedule.py')             // 150 lines
 ```
 
 ✅ **Semantic search first, targeted reads second**
+
 ```javascript
 // Do this instead:
 mcp__claude-context__search_code({
@@ -318,6 +326,7 @@ Read('src/scheduler/schedule_manager.py', { offset: 70, limit: 30 })
 **Created**: WHO-2
 
 **Claude-Context Search**:
+
 ```javascript
 mcp__claude-context__search_code({
   query: "schedule generation service database query",
@@ -327,12 +336,14 @@ mcp__claude-context__search_code({
 ```
 
 **Current State**:
+
 - Schedule generation: `schedule_service.py:generate_schedule()`
 - Settings model: Needs creation
 - Scheduler jobs: `schedule_manager.py:45`
 - Frontend toggle: Needs addition to `schedule.html`
 
 **Impact Analysis**:
+
 - **Database**: Add `settings` table (new migration)
 - **Backend**: New SettingsService, API endpoints
 - **Scheduler**: New `check_auto_renewal()` job at 2:00 AM
@@ -340,6 +351,7 @@ mcp__claude-context__search_code({
 - **Docker**: Rebuild required after backend changes
 
 **Risks**:
+
 - Migration could fail if table exists → Use `alembic stamp head` if needed
 - Scheduler job conflicts → Use unique job ID `auto_renewal_check`
 
@@ -350,6 +362,7 @@ mcp__claude-context__search_code({
 **Created**: WHO-2 (continue in same issue for small features)
 
 **Task Table**:
+
 | ID | Step | Est | Files | Validation | Docker Rebuild? |
 |----|------|-----|-------|------------|-----------------|
 | 1.1 | Create Settings model | 15 | `src/models/settings.py` (NEW) | Import test | No |

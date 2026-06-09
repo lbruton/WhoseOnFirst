@@ -1,4 +1,5 @@
 # Technical Stack - WhoseOnFirst
+
 **Version:** 1.0  
 **Last Updated:** November 4, 2025  
 **Status:** Approved
@@ -28,6 +29,7 @@
 ### 1. FastAPI Framework
 
 #### Why FastAPI?
+
 - **Modern Python:** Built for Python 3.7+ with native async/await support
 - **Type Safety:** Leverages Python type hints for automatic validation
 - **Auto Documentation:** Generates OpenAPI (Swagger) and ReDoc automatically
@@ -36,6 +38,7 @@
 - **Future-Proof:** Growing ecosystem, designed for modern microservices
 
 #### Key Features We'll Use
+
 - **Automatic API Documentation:** Critical for Phase 3 integrations (Teams, Slack)
 - **Dependency Injection:** Clean architecture for database sessions, authentication
 - **Background Tasks:** For non-blocking SMS sends
@@ -44,6 +47,7 @@
 - **Middleware:** Logging, CORS, security headers
 
 #### Example Structure
+
 ```python
 from fastapi import FastAPI, Depends, HTTPException
 from typing import List
@@ -67,9 +71,11 @@ async def get_current_schedule(
 ### 2. Uvicorn ASGI Server
 
 #### Purpose
+
 Production-grade ASGI server for serving FastAPI application
 
 #### Configuration
+
 ```bash
 # Development
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
@@ -79,6 +85,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
 ```
 
 #### Settings for Production
+
 - **Workers:** 2 (RHEL 10 VM, limited resources)
 - **Timeout:** 60 seconds
 - **Keep-alive:** 5 seconds
@@ -89,6 +96,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
 ### 3. APScheduler - Task Scheduling
 
 #### Scheduler Configuration
+
 ```python
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
@@ -115,6 +123,7 @@ scheduler.add_job(
 ```
 
 #### Why APScheduler?
+
 - **In-Process:** No external service required (unlike Celery)
 - **Persistent Jobs:** Survives application restarts via SQLite job store
 - **Timezone Support:** Native CST support, handles DST automatically
@@ -122,6 +131,7 @@ scheduler.add_job(
 - **Flexible Triggers:** Cron, interval, and one-time date triggers
 
 #### Job Store Strategy
+
 - **Development:** In-memory job store for testing
 - **Production:** SQLite job store for persistence
 
@@ -132,6 +142,7 @@ scheduler.add_job(
 ### Phase 1: SQLite
 
 #### Why Start with SQLite?
+
 - **Zero Configuration:** No separate database server to manage
 - **Embedded:** Runs in-process with Python application
 - **File-Based:** Single `.db` file, easy backups
@@ -139,6 +150,7 @@ scheduler.add_job(
 - **ACID Compliant:** Full transaction support despite simplicity
 
 #### SQLite Configuration
+
 ```python
 # Database URL
 SQLALCHEMY_DATABASE_URL = "sqlite:///./whoseonfirst.db"
@@ -153,13 +165,16 @@ engine = create_engine(
 ```
 
 #### SQLite Limitations to Monitor
+
 - **Write Concurrency:** Locks entire database during writes
 - **Max Connections:** ~100 concurrent connections (not an issue for us)
 - **File Locking:** Could be problematic on network file systems
 - **No User Management:** Security relies on file system permissions
 
 #### When to Migrate to PostgreSQL
+
 Triggers for migration:
+
 - More than 10 active team members
 - Multiple concurrent admin users
 - High-frequency schedule updates (>100/hour)
@@ -171,6 +186,7 @@ Triggers for migration:
 ### Phase 2+: PostgreSQL
 
 #### Migration Strategy
+
 Thanks to SQLAlchemy abstraction, migration requires minimal code changes:
 
 ```python
@@ -182,6 +198,7 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 ```
 
 #### PostgreSQL Advantages
+
 - **Concurrency:** MVCC allows multiple simultaneous writers
 - **Advanced Features:** JSON columns, full-text search, window functions
 - **Security:** Built-in authentication, row-level security (RLS)
@@ -193,13 +210,16 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 ### SQLAlchemy ORM
 
 #### Why SQLAlchemy?
+
 - **Database Agnostic:** Switch from SQLite to PostgreSQL with one line change
 - **Async Support:** Compatible with FastAPI's async architecture
 - **Migration Tools:** Alembic for database schema migrations
 - **Type Safety:** Integrates with Pydantic for end-to-end type checking
 
 #### Model Example
+
 ```python
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -212,7 +232,7 @@ class TeamMember(Base):
     name = Column(String, nullable=False)
     phone = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 ```
 
 ---
@@ -222,6 +242,7 @@ class TeamMember(Base):
 ### Twilio Python SDK
 
 #### Setup and Configuration
+
 ```python
 from twilio.rest import Client
 import os
@@ -236,6 +257,7 @@ twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 ```
 
 #### SMS Sending Function
+
 ```python
 def send_sms(to_number: str, message_body: str) -> dict:
     """Send SMS via Twilio with error handling and logging"""
@@ -263,6 +285,10 @@ def send_sms(to_number: str, message_body: str) -> dict:
 ```
 
 #### Retry Logic with Exponential Backoff
+
+> Note: illustrative only — `tenacity` is **not** a project dependency. The live
+> `SMSService` uses a manual `for attempt in range(max_retries)` backoff loop.
+
 ```python
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -276,10 +302,12 @@ def send_sms_with_retry(to_number: str, message: str):
 ```
 
 #### Message Templates
+
 ```python
 def format_shift_notification(member_name: str, duration_hours: int) -> str:
     """Format on-call notification message"""
-    end_time = datetime.now() + timedelta(hours=duration_hours)
+    chicago_tz = timezone('America/Chicago')
+    end_time = datetime.now(chicago_tz) + timedelta(hours=duration_hours)
     
     return (
         f"WhoseOnFirst: Your on-call shift has started.\n"
@@ -295,23 +323,27 @@ def format_shift_notification(member_name: str, duration_hours: int) -> str:
 ### Minimal Frontend Approach
 
 #### Technologies
+
 - **HTML5:** Semantic markup
 - **CSS3:** Modern styling (CSS Grid, Flexbox)
 - **Vanilla JavaScript:** No framework overhead
 - **Fetch API:** For AJAX requests to FastAPI backend
 
 #### Why Vanilla JS?
+
 - **Simplicity:** No build process, no npm dependencies
 - **Performance:** No framework overhead
 - **Maintainability:** Straightforward code, easy for anyone to modify
 - **Future Migration:** Can easily migrate to React/Vue if needed
 
 #### Potential Enhancements (Future)
+
 - **Tailwind CSS:** Utility-first CSS framework
 - **Alpine.js:** Lightweight reactive framework (15KB)
 - **HTMX:** Hypermedia-driven interactions without JavaScript
 
-#### Example Structure
+#### Frontend Example Structure
+
 ```javascript
 // Fetch current schedule from API
 async function loadSchedule() {
@@ -344,9 +376,10 @@ function renderSchedule(schedule) {
 ## Development Tools
 
 ### Version Control
+
 - **Git:** Distributed version control
 - **GitHub:** Remote repository hosting
-- **Branching Strategy:** 
+- **Branching Strategy:**
   - `main` - Production-ready code
   - `develop` - Integration branch
   - `feature/*` - Feature branches
@@ -355,12 +388,14 @@ function renderSchedule(schedule) {
 ### Development Environment
 
 #### Primary IDE: Claude-Code CLI
+
 - AI-assisted coding
 - Context-aware code generation
 - Automated testing support
 - Documentation generation
 
 #### Secondary Tools
+
 - **VS Code:** For manual code review, debugging
 - **Postman/Thunder Client:** API testing
 - **SQLite Browser:** Database inspection
@@ -368,6 +403,7 @@ function renderSchedule(schedule) {
 ### Python Environment Management
 
 #### Virtual Environment Setup
+
 ```bash
 # Create virtual environment
 python3 -m venv venv
@@ -383,6 +419,7 @@ pip install -r requirements.txt
 ```
 
 #### Requirements Management
+
 ```
 # requirements.txt
 fastapi==0.115.0
@@ -410,6 +447,7 @@ mypy==1.7.1     # Type checking
 ### Containerization: Docker
 
 #### Dockerfile Strategy
+
 ```dockerfile
 FROM python:3.11-slim
 
@@ -430,6 +468,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 #### Docker Compose (Development)
+
 ```yaml
 version: '3.8'
 
@@ -452,6 +491,7 @@ services:
 ### Target Platform: RHEL 10
 
 #### System Requirements
+
 - **OS:** Red Hat Enterprise Linux 10
 - **Python:** 3.11+ (install via dnf)
 - **Docker:** Podman (RHEL's Docker alternative) or Docker CE
@@ -460,6 +500,7 @@ services:
 - **Network:** Access to Twilio API (outbound HTTPS)
 
 #### Installation on RHEL 10
+
 ```bash
 # Install Python 3.11
 sudo dnf install python3.11 python3.11-pip
@@ -488,11 +529,13 @@ podman run -d \
 ## Security Considerations
 
 ### Credential Management
+
 - **Environment Variables:** All secrets in `.env` file (never committed)
 - **Podman Secrets:** For production deployment on RHEL
 - **File Permissions:** Restrict `.env` to owner read-only (600)
 
 ### Application Security
+
 - **Input Validation:** Pydantic validates all API inputs
 - **SQL Injection:** SQLAlchemy ORM prevents injection attacks
 - **HTTPS:** Enforce TLS in production (nginx reverse proxy)
@@ -500,6 +543,7 @@ podman run -d \
 - **Rate Limiting:** Implement to prevent abuse
 
 ### Data Security
+
 - **Database Encryption:** File-level encryption for SQLite
 - **Phone Number Handling:** Hash or encrypt in logs
 - **Audit Trail:** Log all schedule changes, SMS sends
@@ -512,6 +556,7 @@ podman run -d \
 ### Logging Strategy
 
 #### Structured Logging
+
 ```python
 import logging
 import json
@@ -538,6 +583,7 @@ logging.basicConfig(
 ```
 
 #### Log Categories
+
 - **Application Logs:** General app events, errors
 - **SMS Logs:** All SMS attempts, success/failure, Twilio SIDs
 - **Scheduler Logs:** Job execution, missed jobs, errors
@@ -547,6 +593,7 @@ logging.basicConfig(
 ### Health Checks
 
 #### FastAPI Health Endpoint
+
 ```python
 @app.get("/health")
 async def health_check():
@@ -561,6 +608,7 @@ async def health_check():
 ```
 
 ### Future Monitoring Tools
+
 - **Prometheus:** Metrics collection
 - **Grafana:** Visualization dashboards
 - **Sentry:** Error tracking and alerting
@@ -572,6 +620,7 @@ async def health_check():
 ### Testing Levels
 
 #### 1. Unit Tests (pytest)
+
 ```python
 import pytest
 from datetime import datetime
@@ -591,6 +640,7 @@ def test_rotation_algorithm():
 ```
 
 #### 2. Integration Tests
+
 ```python
 @pytest.mark.asyncio
 async def test_send_notification_flow():
@@ -611,6 +661,7 @@ async def test_send_notification_flow():
 ```
 
 #### 3. API Tests (httpx + FastAPI TestClient)
+
 ```python
 from fastapi.testclient import TestClient
 
@@ -624,6 +675,7 @@ def test_get_current_schedule():
 ```
 
 ### Test Coverage Goal
+
 - **Target:** 80%+ code coverage
 - **Critical Paths:** 100% coverage (scheduler, SMS sending, rotation algorithm)
 
@@ -632,12 +684,14 @@ def test_get_current_schedule():
 ## Performance Targets
 
 ### Response Time Goals
+
 - **API Endpoints:** <500ms (95th percentile)
 - **Database Queries:** <100ms (95th percentile)
 - **SMS Delivery Trigger:** <60 seconds from scheduled time
 - **Page Load:** <2 seconds (full page)
 
 ### Scalability Targets
+
 - **Team Members:** Support up to 20 (Phase 1), 100+ (Phase 2+)
 - **Concurrent Users:** 5-10 (Phase 1), 50+ (Phase 2+)
 - **Database Size:** <100MB (Phase 1), <10GB (Phase 2+)
@@ -669,11 +723,13 @@ def test_get_current_schedule():
 ## Dependency Versions and Compatibility
 
 ### Python Version Requirements
+
 - **Minimum:** Python 3.11
 - **Recommended:** Python 3.11.7+
 - **Maximum:** Python 3.12.x (test for compatibility)
 
 ### Critical Dependencies
+
 All versions are pinned for reproducibility:
 
 ```txt
@@ -702,6 +758,7 @@ httpx==0.25.2
 ```
 
 ### Version Update Policy
+
 - **Security patches:** Apply immediately
 - **Minor versions:** Update quarterly
 - **Major versions:** Evaluate carefully, test thoroughly
@@ -713,15 +770,18 @@ httpx==0.25.2
 ### SQLite → PostgreSQL Migration
 
 #### Step 1: Prepare Code
+
 All SQLAlchemy code is already database-agnostic
 
 #### Step 2: Export Data
+
 ```bash
 # Export SQLite to SQL dump
 sqlite3 whoseonfirst.db .dump > backup.sql
 ```
 
 #### Step 3: Convert and Import
+
 ```bash
 # Install conversion tool
 pip install sqlite3-to-postgres
@@ -731,12 +791,14 @@ sqlite3-to-postgres -f whoseonfirst.db -d whoseonfirst -u postgres
 ```
 
 #### Step 4: Update Configuration
+
 ```python
 # Change in .env file
 DATABASE_URL=postgresql://user:pass@localhost/whoseonfirst
 ```
 
 #### Step 5: Test Thoroughly
+
 Run full test suite to verify migration
 
 ---
@@ -744,16 +806,19 @@ Run full test suite to verify migration
 ## Cost Considerations
 
 ### Twilio Pricing (Approximate)
+
 - **SMS Outbound (US):** $0.0079 per message
 - **Phone Number:** $1.50/month
 - **Monthly Estimate:** ~$3-5 for 7-person team (7 SMS/day × 30 days × $0.0079)
 
 ### Infrastructure Costs
+
 - **RHEL 10 VM:** Internal hosting (no additional cost)
 - **Development:** Free (local Mac + Proxmox)
 - **Docker/Podman:** Free and open source
 
 ### Total Monthly Operating Cost
+
 - **Phase 1:** <$10/month (Twilio only)
 - **Phase 2:** <$20/month (if adding PostgreSQL on separate VM)
 
@@ -762,6 +827,7 @@ Run full test suite to verify migration
 ## Appendix: Useful Commands
 
 ### Development Workflow
+
 ```bash
 # Start development server
 uvicorn main:app --reload
@@ -783,6 +849,7 @@ alembic upgrade head
 ```
 
 ### Docker Commands
+
 ```bash
 # Build image
 docker build -t whoseonfirst:latest .
@@ -801,6 +868,7 @@ docker rm whoseonfirst
 ```
 
 ### Production Deployment (RHEL 10)
+
 ```bash
 # Pull latest code
 git pull origin main

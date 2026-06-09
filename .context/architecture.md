@@ -1,7 +1,8 @@
 # System Architecture - WhoseOnFirst
+
 **Version:** 1.0  
 **Last Updated:** November 4, 2025  
-**Status:** Design Phase
+**Status:** Active — Phase 1 in production
 
 ---
 
@@ -72,6 +73,7 @@ WhoseOnFirst is designed as a monolithic application with a clear separation of 
 ### 1. API Layer
 
 #### Responsibilities
+
 - HTTP request handling
 - Input validation (Pydantic models)
 - Response serialization
@@ -166,11 +168,13 @@ async def create_team_member(
 ### 2. Service Layer
 
 #### Purpose
+
 Encapsulates business logic and coordinates between API layer and data layer. Services are stateless and can be easily tested in isolation.
 
 #### Key Services
 
 ##### TeamMemberService
+
 ```python
 class TeamMemberService:
     """Business logic for team member management"""
@@ -204,6 +208,7 @@ class TeamMemberService:
 ```
 
 ##### ScheduleService
+
 ```python
 class ScheduleService:
     """Business logic for schedule generation and management"""
@@ -242,6 +247,7 @@ class ScheduleService:
 ```
 
 ##### NotificationService
+
 ```python
 class NotificationService:
     """Business logic for SMS notifications"""
@@ -256,8 +262,9 @@ class NotificationService:
         Send notifications to all on-call personnel for today
         Returns count of successful/failed sends
         """
-        # Get today's schedule entries
-        today = datetime.now().date()
+        # Get today's schedule entries (CST, matching the APScheduler timezone)
+        chicago_tz = timezone('America/Chicago')
+        today = datetime.now(chicago_tz).date()
         entries = self.schedule_repo.get_by_date(today)
         
         results = {"success": 0, "failed": 0}
@@ -278,7 +285,7 @@ class NotificationService:
                     "schedule_id": entry.id,
                     "status": "sent" if result.success else "failed",
                     "twilio_sid": result.sid,
-                    "sent_at": datetime.now()
+                    "sent_at": datetime.now(chicago_tz)
                 })
                 
                 results["success" if result.success else "failed"] += 1
@@ -291,6 +298,7 @@ class NotificationService:
 ```
 
 ##### RotationAlgorithm (Simple Circular Rotation)
+
 ```python
 class RotationAlgorithmService:
     """
@@ -429,7 +437,7 @@ class TeamMemberRepository(BaseRepository):
     
     def get_active(self) -> List[TeamMember]:
         return self.db.query(self.model).filter(
-            self.model.is_active == True
+            self.model.is_active
         ).all()
     
     def get_by_phone(self, phone: str) -> Optional[TeamMember]:
@@ -643,12 +651,12 @@ class SchedulerManager:
         """Job: Send SMS to on-call personnel"""
         logger.info("Starting daily notification job")
         
-        # Get database session
+        # Get database session (SessionLocal: app DB session factory)
         db = SessionLocal()
         try:
             service = NotificationService(
-                db, 
-                get_twilio_client()
+                db,
+                get_twilio_client()  # app Twilio client factory
             )
             results = await service.send_daily_notifications()
             
@@ -861,7 +869,7 @@ User                    FastAPI              Database
  │                         ◀─────────────────────┤
  │                         │                      │
  │                         │ Verify password     │
- │                         │ (bcrypt)            │
+ │                         │ (Argon2id)          │
  │                         │                      │
  │                         │ Generate JWT        │
  │                         │                      │
@@ -888,12 +896,14 @@ User                    FastAPI              Database
 ### Security Controls
 
 #### 1. Input Validation
+
 - Pydantic models validate all API inputs
 - Phone numbers validated against E.164 format
 - SQL injection prevented by SQLAlchemy ORM
 - XSS prevention through proper output encoding
 
 #### 2. Secrets Management
+
 ```python
 # .env file (never committed)
 DATABASE_URL=sqlite:///./whoseonfirst.db
@@ -906,13 +916,15 @@ SECRET_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # JWT signing
 ```
 
 #### 3. Transport Security
+
 - HTTPS enforced in production (nginx reverse proxy)
 - TLS 1.2+ only
 - Strong cipher suites
 - HSTS headers enabled
 
 #### 4. Data Protection
-- Passwords hashed with bcrypt (Phase 2+)
+
+- Passwords hashed with Argon2id (OWASP 2025 parameters; see `authentication.md`)
 - JWT tokens for session management (Phase 2+)
 - Database backups encrypted
 - Phone numbers sanitized in logs
@@ -922,7 +934,9 @@ SECRET_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # JWT signing
 ## Scalability Considerations
 
 ### Vertical Scaling (Phase 1)
+
 Current architecture supports vertical scaling:
+
 - Increase CPU: More Uvicorn workers
 - Increase Memory: Larger database cache
 - Increase Disk: More storage for logs, backups
@@ -930,6 +944,7 @@ Current architecture supports vertical scaling:
 ### Horizontal Scaling (Phase 2+)
 
 #### Load Balancer Architecture
+
 ```
                     ┌─────────────────┐
                     │  Load Balancer  │
@@ -954,9 +969,11 @@ Current architecture supports vertical scaling:
 ```
 
 #### Scheduler in Multi-Instance Setup
+
 **Problem:** APScheduler runs in each instance → duplicate jobs
 
 **Solution Options:**
+
 1. **Leader Election:** Only one instance runs scheduler
 2. **Separate Scheduler Service:** Dedicated container for scheduling
 3. **Distributed Scheduler:** Use APScheduler's distributed mode
@@ -1024,6 +1041,7 @@ with notification_duration.time():
 ### Backup Strategy
 
 #### Automated Daily Backups
+
 ```bash
 #!/bin/bash
 # /opt/whoseonfirst/backup.sh
@@ -1047,7 +1065,8 @@ find $BACKUP_DIR -name "*.gz" -mtime +30 -delete
 
 #### Recovery Procedures
 
-**Scenario 1: Database Corruption**
+##### Scenario 1: Database Corruption
+
 ```bash
 # Stop application
 podman stop whoseonfirst
@@ -1064,7 +1083,8 @@ podman start whoseonfirst
 curl http://localhost:8000/health
 ```
 
-**Scenario 2: Complete System Failure**
+##### Scenario 2: Complete System Failure
+
 1. Provision new RHEL 10 VM
 2. Install Docker/Podman
 3. Clone repository
@@ -1091,6 +1111,7 @@ Need to choose web framework for REST API and web interface.
 Use FastAPI instead of Flask.
 
 **Rationale:**
+
 - Native async/await support for Twilio API calls
 - Automatic OpenAPI documentation (Swagger UI)
 - Type safety reduces bugs
@@ -1098,6 +1119,7 @@ Use FastAPI instead of Flask.
 - Modern Python practices (3.7+)
 
 **Consequences:**
+
 - Team must learn FastAPI (minimal learning curve)
 - Better documentation for future integrations
 - Easier to add async features later
@@ -1116,12 +1138,14 @@ Need database for storing team members, schedule, notification logs.
 Use SQLite for Phase 1, with clear migration path to PostgreSQL.
 
 **Rationale:**
+
 - SQLite perfect for 5-10 users, low concurrency
 - Zero configuration overhead
 - Easy backups (single file)
 - SQLAlchemy makes migration trivial
 
 **Consequences:**
+
 - Must monitor for write contention issues
 - Plan migration when reaching ~10 team members
 - Design schema with PostgreSQL compatibility in mind
@@ -1140,12 +1164,14 @@ Need to send daily SMS notifications at 8:00 AM CST.
 Use APScheduler embedded in FastAPI application.
 
 **Rationale:**
+
 - Cross-platform (works on macOS, Proxmox, RHEL)
 - Timezone support (critical for CST)
 - Persistent job store (survives restarts)
 - Easier testing than system cron
 
 **Consequences:**
+
 - Scheduler runs in application process
 - Need separate strategy for multi-instance deployment (Phase 2+)
 - Simpler deployment (no external dependencies)

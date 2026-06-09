@@ -97,7 +97,7 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
         """Get all active team members."""
         return (
             self.db.query(self.model)
-            .filter(self.model.is_active == True)
+            .filter(self.model.is_active)
             .all()
         )
 
@@ -122,7 +122,7 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
         """Get active members sorted by rotation_order for scheduling."""
         return (
             self.db.query(self.model)
-            .filter(self.model.is_active == True)
+            .filter(self.model.is_active)
             .order_by(self.model.rotation_order.asc().nulls_last(), self.model.id.asc())
             .all()
         )
@@ -131,7 +131,7 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
         """Get the highest rotation_order value."""
         result = (
             self.db.query(self.model.rotation_order)
-            .filter(self.model.is_active == True)
+            .filter(self.model.is_active)
             .order_by(self.model.rotation_order.desc())
             .first()
         )
@@ -428,6 +428,11 @@ def send_daily_notifications():
 ## Twilio Integration
 
 ### SMS Service with Retry Logic
+
+> Note: the live `SMSService` implements retries with a manual
+> `for attempt in range(max_retries)` exponential-backoff loop — `tenacity` is
+> **not** a project dependency. The decorator form below is an illustrative
+> pattern; match the manual loop in `src/services/sms_service.py` for parity.
 
 ```python
 from twilio.rest import Client
@@ -815,24 +820,26 @@ def create_test_shift(
 ### Custom Validators
 
 ```python
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, Field, field_validator
 import re
 
 class TeamMemberCreate(BaseModel):
     """Schema for creating a team member."""
     
     name: str = Field(..., min_length=1, max_length=100)
-    phone: str = Field(..., regex=r'^\+1\d{10}$')
+    phone: str = Field(..., pattern=r'^\+1\d{10}$')
     is_active: bool = True
     
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone_format(cls, v):
         """Validate phone number is in E.164 format."""
         if not re.match(r'^\+1\d{10}$', v):
             raise ValueError('Phone must be in E.164 format: +1XXXXXXXXXX')
         return v
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name_not_empty(cls, v):
         """Ensure name is not just whitespace."""
         if not v.strip():
@@ -840,7 +847,7 @@ class TeamMemberCreate(BaseModel):
         return v.strip()
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "John Doe",
                 "phone": "+15551234567",
@@ -852,11 +859,12 @@ class TeamMemberUpdate(BaseModel):
     """Schema for updating a team member."""
     
     name: str | None = Field(None, min_length=1, max_length=100)
-    phone: str | None = Field(None, regex=r'^\+1\d{10}$')
+    phone: str | None = Field(None, pattern=r'^\+1\d{10}$')
     is_active: bool | None = None
     rotation_order: int | None = Field(None, ge=0)
     
-    @validator('phone')
+    @field_validator('phone')
+    @classmethod
     def validate_phone_format(cls, v):
         """Validate phone number if provided."""
         if v and not re.match(r'^\+1\d{10}$', v):
@@ -865,7 +873,7 @@ class TeamMemberUpdate(BaseModel):
     
     class Config:
         # Allow partial updates
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "Jane Doe"
             }
@@ -883,7 +891,7 @@ class TeamMemberResponse(BaseModel):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 ```
 
 ---
