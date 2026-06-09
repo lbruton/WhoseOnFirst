@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Skill(*)",
+      "mcp__*",
+      "WebFetch",
+      "WebSearch",
+      "Read(//Volumes/DATA/GitHub/**)",
+      "Write(//Volumes/DATA/GitHub/**)",
+      "Edit(//Volumes/DATA/GitHub/**)",
+      "Read(//Users/lbruton/.claude/**)",
+      "Write(//Users/lbruton/.claude/**)",
+      "Edit(//Users/lbruton/.claude/**)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Volumes/DATA/GitHub/WhoseOnFirst/.claude/hooks/post-edit-lint.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /Volumes/DATA/GitHub/WhoseOnFirst/.claude/hooks/post-edit-lint.py"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -61,15 +61,20 @@ venv.bak/
 HANDOFF.md
 .mcp.json
 
-# AI tooling local config (keep local, not for deployment)
+# AI tooling local config
 # Root-level instruction files (CLAUDE.md / AGENTS.md / GEMINI.md) ARE tracked —
-# they describe the project. Only the tool-specific config dirs stay local.
-.claude/*
-!.claude/project.json
+# they describe the project. .claude/ is tracked too (project.json, settings.json,
+# hooks/, hookify rules) so project config travels with the repo; only the
+# per-machine settings.local.json stays local. Other tool config dirs stay local.
+.claude/settings.local.json
 .gemini/
 .codex/
 .kimi/
 .opencode/
+
+# Git worktrees for isolated agent work — content dirs are transient, not project history
+.worktrees/
+.claude/worktrees/
 
 # E2E / Playwright test tooling (local dev only)
 .playwright-mcp/
