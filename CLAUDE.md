@@ -4,8 +4,8 @@ Automated on-call rotation + SMS notification system for a 7-person technical te
 
 ## Docs
 
-- **In-repo:** `/docs/planning/PRD.md`, `/docs/planning/architecture.md`, `/docs/planning/technical-stack.md`, `/docs/reference/code-patterns.md`, `/docs/RPI_PROCESS.md`. Source of truth for this project.
-- **DocVault:** `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/` — `[[WhoseOnFirst/Overview]]`, runbooks, security reviews. Run `/vault-update` after behavior-affecting changes.
+- **In-repo (`.context/`):** `architecture.md`, `technical-stack.md`, `code-patterns.md`, `authentication.md`, `rpi-process.md`. Foundation source of truth — tracked, travels with the code. Start at `.context/README.md`.
+- **DocVault:** `/Volumes/DATA/GitHub/DocVault/Projects/WhoseOnFirst/` — `[[WhoseOnFirst/Overview]]`, PRD, research notes, sprint archives, runbooks, security reviews. Human/product-facing + long-term research. Run `/vault-update` after behavior-affecting changes.
 
 ## Branch & Push Policy (overrides global)
 
@@ -67,7 +67,7 @@ Prod runs on Portainer VM `192.168.1.81` stack #12 behind Cloudflare Zero Trust 
 
 ## RPI Workflow
 
-Project-specific override to global spec-workflow: **Research → Plan → Implement** (3 phases). Full process: `/docs/RPI_PROCESS.md`.
+Project-specific override to global spec-workflow: **Research → Plan → Implement** (3 phases). Full process: `.context/rpi-process.md`.
 
 ## Issue Tracking
 

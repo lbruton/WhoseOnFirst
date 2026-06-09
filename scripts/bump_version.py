@@ -14,7 +14,7 @@ Updates version in:
 - src/main.py (FastAPI app + API endpoint)
 - frontend/components/sidebar.html (footer badge)
 - CLAUDE.md (multiple locations)
-- All docs/ files
+- Foundation docs (.context/ files)
 - CHANGELOG.md (creates new release entry)
 """
 
@@ -212,13 +212,12 @@ def main():
         root / "CLAUDE.md",
         root / "frontend" / "components" / "sidebar.html",
 
-        # Documentation files
-        root / "docs" / "DOCUMENTATION_GUIDE.md",
-        root / "docs" / "planning" / "architecture.md",
-        root / "docs" / "planning" / "technical-stack.md",
-        root / "docs" / "reference" / "code-patterns.md",
-        root / "docs" / "RPI_PROCESS.md",
-        root / "docs" / "TAXONOMY.md",
+        # Foundation docs (.context/)
+        root / ".context" / "architecture.md",
+        root / ".context" / "technical-stack.md",
+        root / ".context" / "code-patterns.md",
+        root / ".context" / "rpi-process.md",
+        root / ".context" / "authentication.md",
     ]
 
     total_replacements = 0

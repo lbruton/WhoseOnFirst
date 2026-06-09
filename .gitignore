@@ -77,7 +77,9 @@ ROADMAP.md
 playwright.config.js
 e2e/
 
-# Documentation (keep local for reference, not needed in deployment)
+# Documentation
+# Foundation docs are tracked in .context/ (NOT ignored). docs/ now holds only
+# screenshots referenced by the app/README; loose files there stay local by default.
 docs/
 !docs/screenshots/
 
