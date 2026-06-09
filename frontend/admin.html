@@ -85,6 +85,18 @@
                     <!-- Alert area -->
                     <div id="alertArea" class="mb-3" style="display:none;"></div>
 
+                    <!-- SMS not-configured banner -->
+                    <div id="sms-not-configured-banner" class="alert alert-warning" role="alert" hidden>
+                        <div class="d-flex">
+                            <div><i class="ti ti-alert-triangle"></i></div>
+                            <div class="ms-2">
+                                <strong>SMS notifications are not configured.</strong>
+                                SMS will not be sent until Twilio credentials are entered.
+                                <a href="#twilio-config">Configure now</a>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="row row-cards">
 
                         <!-- Export Card -->
@@ -164,6 +176,36 @@
                                         <i class="ti ti-upload me-2"></i>
                                         Restore from Backup
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Twilio Configuration Card -->
+                        <div class="col-md-6">
+                            <div class="card" id="twilio-config">
+                                <div class="card-header">
+                                    <h3 class="card-title">Twilio Configuration</h3>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="twilioSidInput">Account SID</label>
+                                        <input type="text" class="form-control" id="twilioSidInput" autocomplete="off" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                                        <small class="form-hint">Starts with "AC" followed by 32 hex characters.</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="twilioTokenInput">Auth Token</label>
+                                        <input type="password" class="form-control" id="twilioTokenInput" autocomplete="off" placeholder="Enter Twilio Auth Token">
+                                        <small class="form-hint">Find this in your Twilio Console under Account Info.</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label" for="twilioPhoneInput">Phone Number</label>
+                                        <input type="tel" class="form-control" id="twilioPhoneInput" autocomplete="off" placeholder="+15551234567">
+                                        <small class="form-hint">E.164 format with US country code prefix (+1).</small>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <button id="saveTwilioBtn" class="btn btn-primary">Save &amp; Test</button>
+                                    <div id="twilioStatus" class="mt-2" role="status" aria-live="polite" aria-atomic="true"></div>
                                 </div>
                             </div>
                         </div>
@@ -348,6 +390,156 @@
                 setLoading(btn, false, '<i class="ti ti-upload me-2"></i>Restore from Backup');
             }
         });
+    </script>
+
+    <script>
+    (function () {
+        // === Twilio Configuration card wiring ===
+
+        const sidInput = document.getElementById('twilioSidInput');
+        const tokenInput = document.getElementById('twilioTokenInput');
+        const phoneInput = document.getElementById('twilioPhoneInput');
+        const saveBtn = document.getElementById('saveTwilioBtn');
+        const statusDiv = document.getElementById('twilioStatus');
+        const banner = document.getElementById('sms-not-configured-banner');
+
+        if (!sidInput || !tokenInput || !phoneInput || !saveBtn) return;
+
+        function setStatus(msg, type) {
+            statusDiv.textContent = msg;
+            statusDiv.className = 'mt-2 text-' + (type || 'muted');
+        }
+
+        function loadTwilioConfig() {
+            fetch('/api/v1/settings/twilio')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.account_sid) sidInput.value = data.account_sid;
+                    if (data.phone_number) phoneInput.value = data.phone_number;
+                    if (data.auth_token_masked) {
+                        tokenInput.placeholder = data.auth_token_masked;
+                    } else {
+                        tokenInput.placeholder = 'Enter Twilio Auth Token';
+                    }
+                })
+                .catch(function () { /* silent — fields stay empty */ });
+        }
+
+        function loadSmsStatus() {
+            fetch('/api/v1/settings/sms-status')
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (banner && data.source === 'none') {
+                        banner.hidden = false;
+                    } else if (banner) {
+                        banner.hidden = true;
+                    }
+                })
+                .catch(function () { /* silent — banner stays hidden */ });
+        }
+
+        // Paranoia: clear masked-placeholder value on focus so user must re-type
+        tokenInput.addEventListener('focus', function () {
+            if (tokenInput.value && /^•{8}[A-Za-z0-9]{4}$/.test(tokenInput.value)) {
+                tokenInput.value = '';
+            }
+        });
+
+        saveBtn.addEventListener('click', function () {
+            const sid = sidInput.value.trim();
+            const token = tokenInput.value.trim();
+            const phone = phoneInput.value.trim();
+
+            if (!sid || !token || !phone) {
+                setStatus('All three fields are required.', 'danger');
+                return;
+            }
+
+            setStatus('Validating with Twilio…', 'muted');
+            saveBtn.disabled = true;
+
+            fetch('/api/v1/settings/twilio', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    account_sid: sid,
+                    auth_token: token,
+                    phone_number: phone
+                })
+            })
+                .then(function (r) {
+                    return r.json().then(function (body) {
+                        return { ok: r.ok, status: r.status, body: body };
+                    });
+                })
+                .then(function (res) {
+                    if (res.ok) {
+                        setStatus('Saved. Twilio credentials validated.', 'success');
+                        if (res.body.auth_token_masked) {
+                            tokenInput.value = '';
+                            tokenInput.placeholder = res.body.auth_token_masked;
+                        }
+                        loadSmsStatus();
+                        window.dispatchEvent(new CustomEvent('smsStatusChanged'));
+                    } else {
+                        let detail = 'Save failed.';
+                        if (res.body && res.body.detail) {
+                            if (typeof res.body.detail === 'string') {
+                                detail = res.body.detail;
+                            } else if (Array.isArray(res.body.detail)) {
+                                // Pydantic 422 — array of {loc, msg, type}
+                                detail = res.body.detail.map(function (e) {
+                                    var fieldPath = Array.isArray(e.loc) ? e.loc.slice(1).join('.') : 'field';
+                                    var msg = e.msg || 'invalid';
+                                    if (/account_sid/i.test(fieldPath) && /pattern|match/i.test(msg)) {
+                                        msg = 'must start with "AC" followed by 32 hex chars';
+                                    } else if (/phone_number/i.test(fieldPath) && /pattern|match/i.test(msg)) {
+                                        msg = 'must be E.164 US format (e.g. +15551234567)';
+                                    } else if (/auth_token/i.test(fieldPath) && /at least|min_length/i.test(msg)) {
+                                        msg = 'is too short — paste your full Twilio Auth Token';
+                                    }
+                                    return fieldPath + ': ' + msg;
+                                }).join('; ');
+                            } else {
+                                detail = JSON.stringify(res.body.detail);
+                            }
+                        }
+                        setStatus(detail, 'danger');
+                    }
+                })
+                .catch(function () {
+                    setStatus('Network error — please try again.', 'danger');
+                })
+                .finally(function () {
+                    saveBtn.disabled = false;
+                });
+        });
+
+        function maybeDeepLinkScroll() {
+            // Bug #1 fix: native anchor jump fires before dynamic JS finishes wiring,
+            // so the card is off-screen at mobile widths. Re-scroll after init.
+            if (window.location.hash === '#twilio-config') {
+                var card = document.getElementById('twilio-config');
+                if (card) {
+                    requestAnimationFrame(function () {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    });
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            loadTwilioConfig();
+            loadSmsStatus();
+            maybeDeepLinkScroll();
+        });
+        // If DOM is already loaded (script tag at page bottom), call immediately too
+        if (document.readyState !== 'loading') {
+            loadTwilioConfig();
+            loadSmsStatus();
+            maybeDeepLinkScroll();
+        }
+    })();
     </script>
 </body>
 </html>

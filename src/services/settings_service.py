@@ -4,11 +4,16 @@ Settings service for business logic.
 Manages application settings with type-safe accessors.
 """
 
+import logging
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
+from cryptography.fernet import InvalidToken
 
 from ..repositories.settings_repository import SettingsRepository
 from ..models.settings import Settings
+from .secrets_service import SecretsService, SecretsConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 # Setting key constants
@@ -57,13 +62,40 @@ class SettingsService:
         """
         Get a setting by key.
 
+        For rows with ``value_type == "encrypted"``, the stored ciphertext
+        is transparently decrypted in memory before returning. The DB row
+        is NOT modified — only the in-memory ``value`` attribute is replaced
+        with the plaintext. If decryption fails (``InvalidToken`` or missing
+        ``SECRET_KEY``), this returns ``None`` and logs a warning so callers
+        can fall through to env-var fallback or mock mode.
+
         Args:
             key: Setting key
 
         Returns:
             Settings instance or None
         """
-        return self.repository.get_by_key(key)
+        setting = self.repository.get_by_key(key)
+        if setting is None:
+            return None
+        if setting.value_type == "encrypted":
+            try:
+                plaintext = SecretsService().decrypt(setting.value)
+            except (InvalidToken, SecretsConfigurationError):
+                logger.warning(
+                    "Failed to decrypt setting key=%s — possibly SECRET_KEY rotation or DB corruption",
+                    key,
+                )
+                return None
+            # Detach from session BEFORE mutating .value so SQLAlchemy's
+            # dirty-tracking does not flag this row for write-back. If we
+            # mutated a session-bound entity, a downstream commit() in this
+            # request lifecycle (autoflush, explicit commit, or session
+            # teardown) would persist the plaintext over the ciphertext —
+            # the exact regression CodeRabbit flagged.
+            self.db.expunge(setting)
+            setting.value = plaintext
+        return setting
 
     def get_all_settings(self) -> Dict[str, Any]:
         """
@@ -82,6 +114,11 @@ class SettingsService:
         """
         Set a setting value.
 
+        For ``value_type == "encrypted"``, the value is transparently
+        encrypted via :class:`SecretsService` before being persisted. The
+        ciphertext is stored in the ``value`` column and ``"encrypted"``
+        in the ``value_type`` column.
+
         Args:
             key: Setting key
             value: Setting value (will be converted to string)
@@ -91,6 +128,11 @@ class SettingsService:
         Returns:
             Settings instance
         """
+        # Encrypted secrets bypass type-detection entirely — caller opts in.
+        if value_type == "encrypted":
+            ciphertext = SecretsService().encrypt(str(value))
+            return self.repository.set_value(key, ciphertext, "encrypted", description)
+
         # Auto-detect type if not provided
         if value_type is None:
             if isinstance(value, bool):

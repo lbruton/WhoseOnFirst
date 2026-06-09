@@ -17,7 +17,7 @@ class TestVersionEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert "version" in data
-        assert data["version"] == "1.6.0"
+        assert data["version"] == "1.7.0"
 
     def test_get_version_missing_file(self, client: TestClient, monkeypatch):
         """Test that a missing VERSION file returns {"version": "unknown"}."""

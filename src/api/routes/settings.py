@@ -4,9 +4,17 @@ Settings API Routes
 FastAPI router for application settings management.
 """
 
+import logging
+import re
+from typing import Optional
+
+import httpx
+import requests.exceptions
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-import re
+from twilio.base.exceptions import TwilioRestException
+from twilio.http.http_client import TwilioHttpClient
+from twilio.rest import Client
 
 from src.api.dependencies import get_db
 from src.api.schemas.settings import (
@@ -15,13 +23,36 @@ from src.api.schemas.settings import (
     SMSTemplateResponse,
     SMSTemplateRequest,
     EscalationConfigResponse,
-    EscalationConfigRequest
+    EscalationConfigRequest,
+    TwilioConfigRequest,
+    TwilioConfigResponse,
+    SMSStatusResponse,
 )
 from src.services import SettingsService
+from src.services.secrets_service import SecretsConfigurationError
+from src.services.sms_service import SMSService
 from src.api.routes.auth import require_auth, require_admin
 
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+# Matches the masked placeholder format the GET endpoint returns:
+# 8 BULLET (U+2022) characters followed by 4 alphanumeric chars.
+_MASKED_PLACEHOLDER_PATTERN = re.compile(r"^•{8}[A-Za-z0-9]{4}$")
+
+
+def _mask_token(plaintext: Optional[str]) -> Optional[str]:
+    """Return masked representation of a secret: 8 bullets + last 4 chars.
+
+    Returns ``None`` when the input is ``None`` or shorter than 4 characters
+    (treated as effectively absent rather than risking a partial reveal).
+    """
+    if not plaintext or len(plaintext) < 4:
+        return None
+    return ("•" * 8) + plaintext[-4:]
 
 
 @router.get("/auto-renew", response_model=AutoRenewConfigResponse)
@@ -395,3 +426,219 @@ def update_escalation_weekly(
     return {
         "enabled": service.is_escalation_weekly_enabled()
     }
+
+
+@router.get("/twilio", response_model=TwilioConfigResponse)
+def get_twilio_config(
+    db: Session = Depends(get_db),
+    current_user = Depends(require_auth),
+) -> TwilioConfigResponse:
+    """
+    Get current Twilio configuration.
+
+    Returns Account SID and sender phone number in plaintext, with the
+    Auth Token returned as a masked placeholder ("••••••••XXXX" — 8 bullets
+    followed by the last 4 characters of the plaintext token). If a value
+    is unset (or the encrypted token cannot be decrypted), the corresponding
+    response field is ``null``.
+
+    Args:
+        db: Database session (injected)
+        current_user: Authenticated user (injected)
+
+    Returns:
+        TwilioConfigResponse with masked auth token
+
+    Example:
+        GET /api/v1/settings/twilio
+    """
+    service = SettingsService(db)
+    sid_setting = service.get_setting("twilio_account_sid")
+    token_setting = service.get_setting("twilio_auth_token")
+    phone_setting = service.get_setting("twilio_phone_number")
+
+    sid_value = sid_setting.value if sid_setting else None
+    token_value = token_setting.value if token_setting else None
+    phone_value = phone_setting.value if phone_setting else None
+
+    return TwilioConfigResponse(
+        account_sid=sid_value,
+        phone_number=phone_value,
+        auth_token_masked=_mask_token(token_value),
+    )
+
+
+@router.put("/twilio", response_model=TwilioConfigResponse)
+def put_twilio_config(
+    request: TwilioConfigRequest,
+    db: Session = Depends(get_db),
+    current_user = Depends(require_admin),
+) -> TwilioConfigResponse:
+    """
+    Update Twilio configuration with validation.
+
+    The handler validates the credentials by calling the Twilio API
+    (``client.api.accounts(sid).fetch()``) BEFORE persisting any setting.
+    On success, the SID and phone number are stored as plaintext settings
+    and the auth token is stored encrypted-at-rest via Fernet
+    (``value_type="encrypted"``).
+
+    **Error mapping:**
+
+    - ``400`` — Twilio rejected the credentials (auth failure / SDK 401),
+      OR the auth token field is the masked placeholder
+      ("••••••••XXXX") rather than a real token.
+    - ``502`` — Could not reach Twilio (network timeout, DNS failure,
+      or any non-401 transport error).
+
+    Only administrators can update Twilio configuration.
+
+    Args:
+        request: TwilioConfigRequest with account_sid, auth_token, phone_number
+        db: Database session (injected)
+        current_user: Authenticated admin user (injected)
+
+    Returns:
+        TwilioConfigResponse with masked auth token
+
+    Raises:
+        HTTPException 400: Masked placeholder submitted, or Twilio rejected
+            the credentials (SDK status 401).
+        HTTPException 502: Twilio API was unreachable.
+
+    Example:
+        PUT /api/v1/settings/twilio
+        {
+            "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "auth_token": "your-twilio-auth-token",
+            "phone_number": "+15551234567"
+        }
+    """
+    # 1. Defense-in-depth: the masked placeholder must never round-trip
+    # through Twilio validation or hit the DB. Frontend should swap it for
+    # a real token before submit; this guard catches programming errors.
+    if _MASKED_PLACEHOLDER_PATTERN.match(request.auth_token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Auth Token is the masked placeholder — re-enter the real "
+                "token to update."
+            ),
+        )
+
+    # 2. Validate via Twilio API call BEFORE persisting anything.
+    try:
+        # TwilioHttpClient is the SDK's expected http_client interface;
+        # passing a raw httpx.Client silently dropped the timeout (CodeRabbit M4).
+        client = Client(
+            request.account_sid,
+            request.auth_token,
+            http_client=TwilioHttpClient(timeout=5.0),
+        )
+        client.api.accounts(request.account_sid).fetch()
+    except TwilioRestException as exc:
+        if exc.status == 401:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Twilio rejected these credentials — check the Account "
+                    "SID and Auth Token."
+                ),
+            ) from exc
+        if exc.status is not None and exc.status < 500:
+            # Client-side Twilio error (e.g. 400 bad SID format, 429 rate
+            # limited) — the server was reachable; surface the Twilio detail.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Twilio error ({exc.status}): {exc.msg}",
+            ) from exc
+        # 5xx or unknown status — genuine server-side / transport problem.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Could not reach Twilio for validation. Try again, or "
+                "check network connectivity."
+            ),
+        ) from exc
+    except (
+        requests.exceptions.RequestException,
+        httpx.TransportError,
+        httpx.TimeoutException,
+    ) as exc:
+        # Network/transport failure (DNS, TCP timeout, TLS error, etc.).
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Could not reach Twilio for validation. Try again, or "
+                "check network connectivity."
+            ),
+        ) from exc
+
+    # 3. Persist (only after validation passed). Token is encrypted via
+    # SettingsService when value_type="encrypted".
+    service = SettingsService(db)
+    try:
+        service.set_setting(
+            "twilio_account_sid",
+            request.account_sid,
+            value_type="str",
+            description="Twilio Account SID",
+        )
+        service.set_setting(
+            "twilio_auth_token",
+            request.auth_token,
+            value_type="encrypted",
+            description="Twilio Auth Token (encrypted at rest via Fernet)",
+        )
+        service.set_setting(
+            "twilio_phone_number",
+            request.phone_number,
+            value_type="str",
+            description="Twilio sender phone number (E.164)",
+        )
+    except SecretsConfigurationError as exc:
+        logger.error(
+            "Twilio config persist failed: SECRET_KEY missing — cannot encrypt auth token"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "Server is missing the SECRET_KEY environment variable "
+                "required to encrypt secrets. Contact your administrator."
+            ),
+        ) from exc
+
+    # 4. Audit log line — never include the token itself.
+    logger.info(
+        "Twilio config updated by user_id=%s",
+        getattr(current_user, "id", "unknown"),
+    )
+
+    # 5. Return masked response.
+    return TwilioConfigResponse(
+        account_sid=request.account_sid,
+        phone_number=request.phone_number,
+        auth_token_masked=_mask_token(request.auth_token),
+    )
+
+
+@router.get("/sms-status", response_model=SMSStatusResponse)
+def get_sms_status(
+    db: Session = Depends(get_db),
+    current_user = Depends(require_auth),
+) -> SMSStatusResponse:
+    """Return current SMS configuration status.
+
+    Used by the sidebar pill and the admin banner to surface whether
+    real SMS will be sent. ``configured`` is True only when the resolved
+    source is ``"db"`` or ``"env"``; ``"mock"`` and ``"none"`` both report
+    ``configured=False`` (mock is informational, none is a warning).
+
+    No DB writes or Twilio calls are performed by this endpoint. Service
+    initialization may emit diagnostic logs while resolving configuration.
+    """
+    sms_service = SMSService(db)
+    return SMSStatusResponse(
+        configured=sms_service.config_source in ("db", "env"),
+        source=sms_service.config_source,
+    )
