@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-04-25
+
+### Added
+
+- **Twilio Configuration card on Admin page** (admin-only) — enter Account SID, Auth Token, Phone Number directly via the UI
+- **New endpoints** — `GET /api/v1/settings/twilio`, `PUT /api/v1/settings/twilio`, `GET /api/v1/settings/sms-status`
+- **"SMS not configured" sidebar pill** (admin-only) and admin-page banner — visible when no Twilio credentials are configured
+- **`SecretsService`** for symmetric encryption primitives (Fernet + PBKDF2HMAC-SHA256)
+- **`cryptography>=46.0.7,<48`** dependency
+
+### Changed
+
+- **`SMSService.__init__`** no longer crashes when Twilio credentials are missing — instead enters an unconfigured mode with visible UI indicators; SMS sends fail loudly (`SMSDeliveryError`) rather than silently succeeding (`SMS_MOCK_MODE` remains explicit opt-in; DB → env → unconfigured precedence chain)
+- **`SettingsService`** now supports `value_type="encrypted"` for transparent encrypt/decrypt at rest
+
+### Security
+
+- **Twilio Auth Token** now encrypted at rest using Fernet (AES-128-CBC + HMAC-SHA256) keyed via PBKDF2HMAC-SHA256 from `SECRET_KEY` (1.2M iterations)
+
+Reference: WHO-43.
+
+---
+
 ## [1.6.1] - 2026-04-09
 
 ### Fixed
@@ -1154,7 +1177,8 @@ These limitations are intentional design choices for the MVP. Future enhancement
 
 ---
 
-[Unreleased]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.6.1...v1.7.0
 [1.5.0]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.3.0...v1.3.1

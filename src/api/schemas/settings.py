@@ -4,9 +4,16 @@ Pydantic schemas for settings API.
 Defines request/response models for settings endpoints.
 """
 
-from pydantic import BaseModel, Field
-from typing import Any, Optional
+import re
+
+from pydantic import BaseModel, Field, field_validator
+from typing import Any, Literal, Optional
 from datetime import datetime
+
+# Masked placeholder rendered by the admin UI when a token is already
+# stored: 8 bullets + last 4 chars of the token. The route handler
+# rejects this with a friendly 400 — the schema must allow it through.
+_MASKED_AUTH_TOKEN_PLACEHOLDER = re.compile(r"^•{8}[A-Za-z0-9]{4}$")
 
 
 class SettingResponse(BaseModel):
@@ -27,6 +34,60 @@ class SettingUpdateRequest(BaseModel):
     """Request model for updating a setting."""
 
     value: Any = Field(..., description="Setting value (will be converted to appropriate type)")
+
+
+class TwilioConfigRequest(BaseModel):
+    """Request body for PUT /api/v1/settings/twilio.
+
+    Validation strategy:
+
+    - ``account_sid`` is sanity-checked with a permissive shape regex
+      (two letters + 30–40 alphanumerics) so obvious garbage like
+      ``"notvalid"`` fails fast at the schema layer with a field-specific
+      Pydantic 422 — instead of being passed to Twilio and surfacing as
+      a generic "Twilio rejected these credentials" message that doesn't
+      tell the user which field is wrong (dogfood Bug #2). The pattern
+      is intentionally broader than ``^AC[a-f0-9]{32}$`` because the
+      test suite uses ``xx``-prefixed fixtures to avoid GitHub's Twilio
+      secret scanner; a real malformed SID still gets caught by Twilio's
+      401 in the route handler.
+    - ``auth_token`` enforces a minimum length of 20 in a custom
+      validator that explicitly allows the masked-placeholder shape
+      through. The route handler then rejects the placeholder with a
+      friendly 400 ("re-enter the real token to update").
+    - ``phone_number`` is strict E.164 US format.
+    """
+    account_sid: str = Field(..., pattern=r"^[A-Za-z]{2}[A-Za-z0-9]{30,40}$")
+    auth_token: str = Field(..., max_length=200)
+    phone_number: str = Field(..., pattern=r"^\+1\d{10}$")
+
+    @field_validator("auth_token")
+    @classmethod
+    def _auth_token_min_length_or_placeholder(cls, v: str) -> str:
+        # The masked placeholder (12 chars) is allowed through so the
+        # route handler can return its friendly 400. Anything else must
+        # meet the real-token minimum length.
+        if _MASKED_AUTH_TOKEN_PLACEHOLDER.fullmatch(v):
+            return v
+        if len(v) < 20:
+            raise ValueError(
+                "Auth Token must be at least 20 characters "
+                "(paste the full token from Twilio Console)"
+            )
+        return v
+
+
+class TwilioConfigResponse(BaseModel):
+    """Response body for GET /api/v1/settings/twilio. Auth token is masked."""
+    account_sid: Optional[str] = None
+    phone_number: Optional[str] = None
+    auth_token_masked: Optional[str] = None
+
+
+class SMSStatusResponse(BaseModel):
+    """Response body for GET /api/v1/settings/sms-status."""
+    configured: bool
+    source: Literal["db", "env", "none", "mock"]
 
 
 class AutoRenewConfigResponse(BaseModel):

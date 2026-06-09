@@ -6,7 +6,7 @@ Covers Twilio integration, retry logic, error handling, and notification logging
 
 import pytest
 import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, ANY
 from datetime import datetime, timedelta
 from pytz import timezone
 
@@ -15,10 +15,9 @@ from twilio.base.exceptions import TwilioRestException
 from src.services.sms_service import (
     SMSService,
     SMSServiceError,
-    TwilioConfigurationError,
-    SMSDeliveryError
+    SMSDeliveryError,
 )
-from src.models import TeamMember, Shift, Schedule, NotificationLog
+from src.models import TeamMember, Shift, Schedule
 
 
 # Chicago timezone
@@ -107,12 +106,42 @@ class TestSMSServiceInitialization:
         assert service.base_delay == 30
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_initialization_missing_credentials(self, test_db_session):
-        """Test initialization fails with missing Twilio credentials."""
-        with pytest.raises(TwilioConfigurationError) as exc_info:
-            SMSService(test_db_session, mock_mode=False)
+    def test_initialization_falls_back_to_unconfigured_when_neither_present(self, test_db_session):
+        """Covers WHO-43 REQ-3 AC 3 + CodeRabbit C2 (no silent fake success).
 
-        assert "Twilio configuration missing" in str(exc_info.value)
+        With no DB Twilio config and no env vars, SMSService(db) must NOT
+        raise — the app needs to boot so the admin can land on /admin.html
+        and configure Twilio. But it must also NOT enter mock_mode (which
+        would silently log every send as successful while transmitting
+        nothing — the WHO-49 regression vector). Instead it enters an
+        explicit `unconfigured` state and any send attempt raises
+        SMSDeliveryError.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.mock_mode is False, (
+            "unconfigured must NOT silently flip to mock_mode"
+        )
+        assert service.unconfigured is True
+        assert service.config_source == "none"
+        assert service.twilio_client is None
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_send_sms_raises_when_unconfigured(self, test_db_session):
+        """Covers CodeRabbit C2: unconfigured sends MUST fail loudly.
+
+        The fix discriminator — without this, an unconfigured deploy would
+        log every notification as 'sent' while no SMS leaves the system.
+
+        Env is fully cleared (TWILIO_* and SMS_MOCK_MODE) so this test
+        deterministically enters unconfigured state regardless of the
+        machine environment.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+        assert service.unconfigured is True
+
+        with pytest.raises(SMSDeliveryError, match="not configured"):
+            service._send_sms("+15551234567", "test body")
 
     @patch.dict(os.environ, {
         'TWILIO_ACCOUNT_SID': 'AC123',
@@ -126,7 +155,25 @@ class TestSMSServiceInitialization:
 
         assert service.twilio_client is not None
         assert service.from_phone == '+15551234567'
-        mock_client.assert_called_once_with('AC123', 'token123')
+        mock_client.assert_called_once_with('AC123', 'token123', http_client=ANY)
+
+    @patch.dict(os.environ, {
+        'TWILIO_ACCOUNT_SID': 'ACbad',
+        'TWILIO_AUTH_TOKEN': 'badtoken',
+        'TWILIO_PHONE_NUMBER': '+15551234567'
+    }, clear=True)
+    @patch('src.services.sms_service.Client', side_effect=Exception("SDK rejected credentials"))
+    def test_initialization_enters_unconfigured_when_sdk_rejects_creds(self, mock_client, test_db_session):
+        """Covers T9 (Gemini HIGH): present-but-rejected credentials must NOT
+        crash the app. Instead, enter unconfigured state so the app boots and
+        subsequent sends fail loudly via SMSDeliveryError.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.mock_mode is False
+        assert service.unconfigured is True
+        assert service.config_source == "none"
+        assert service.twilio_client is None
 
     @patch.dict(os.environ, {'SMS_MOCK_MODE': 'true'}, clear=True)
     def test_sms_mock_mode_env_var_forces_mock_with_missing_creds(self, test_db_session):
@@ -312,6 +359,36 @@ class TestRetryLogic:
         # Verify it stopped after 1 attempt (non-retryable)
         assert result['success'] is False
         assert result['attempts'] == 3  # Still tries max_retries, but doesn't retry
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_unconfigured_sms_delivery_error_not_retried(self, test_db_session, schedule):
+        """Covers T20 (CodeRabbit MAJOR): SMSDeliveryError from unconfigured
+        service must NOT be retried — it is a permanent failure condition.
+        Exactly one failure log row should be written per phone number, not N.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+        assert service.unconfigured is True
+
+        call_count = 0
+        original_send_sms = service._send_sms
+
+        def counting_send_sms(to_phone, message_body):
+            nonlocal call_count
+            call_count += 1
+            return original_send_sms(to_phone, message_body)
+
+        service._send_sms = counting_send_sms
+        result = service._send_to_single_phone(
+            phone="+15551234567",
+            message_body="test",
+            schedule=schedule,
+            phone_type="primary",
+            recipient_name="Test User"
+        )
+
+        assert result['success'] is False
+        # SMSDeliveryError must not be retried — called exactly once
+        assert call_count == 1
 
 
 class TestMessageComposition:
@@ -788,3 +865,196 @@ class TestSendEscalationWeeklySummary:
 
         assert result["failed"] == 1
         assert result["successful"] == 0
+
+
+# ===========================================================================
+# WHO-43 — DB → env → mock precedence chain (TDD red phase)
+# ===========================================================================
+#
+# These tests pin the contract for design.md §Component 3:
+#   - SMSService.config_source attribute exposed on the instance
+#   - DB takes precedence over env when populated
+#   - Env is the fallback when DB is empty
+#   - Mock mode wins if SMS_MOCK_MODE is truthy
+#   - Decrypt failure on the DB token falls through gracefully
+#
+# They will fail until Task 4 refactors SMSService.__init__ to use the
+# new precedence chain and add the config_source attribute.
+
+class TestConfigPrecedenceChain:
+    """Covers WHO-43 REQ-3 AC 1, AC 2, AC 4; REQ-2 AC 5 (decrypt fallback)."""
+
+    @patch.dict(os.environ, {}, clear=True)
+    @patch("src.services.sms_service.Client")
+    def test_initialization_uses_db_when_db_config_present(
+        self, mock_client, test_db_session
+    ):
+        """Covers REQ-3 AC 1 (DB-first when populated).
+
+        When the settings table has all three Twilio rows (with the auth
+        token persisted as an encrypted-type row), SMSService must load
+        from the DB and report config_source == 'db'.
+        """
+        os.environ["SECRET_KEY"] = "test-secret-key-db-config"  # gitleaks:allow (test-only fake key)
+
+        from src.services.settings_service import SettingsService
+
+        settings = SettingsService(test_db_session)
+        settings.set_setting(
+            "twilio_account_sid", "xxdb000000000000000000000000000000",
+            value_type="str"
+        )
+        settings.set_setting(
+            "twilio_auth_token", "db-auth-token-secret-12345678",
+            value_type="encrypted"
+        )
+        settings.set_setting(
+            "twilio_phone_number", "+15550009999",
+            value_type="str"
+        )
+
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.config_source == "db"
+        assert service.from_phone == "+15550009999"
+        assert service.twilio_client is not None
+        # Twilio Client should have been constructed with the DB values.
+        mock_client.assert_called_once_with(
+            "xxdb000000000000000000000000000000",
+            "db-auth-token-secret-12345678",
+            http_client=ANY,
+        )
+
+    @patch.dict(os.environ, {
+        "TWILIO_ACCOUNT_SID": "ACenv00000000000000000000000000000",
+        "TWILIO_AUTH_TOKEN": "env-token-fallback-9876543210",
+        "TWILIO_PHONE_NUMBER": "+15558887777",
+    }, clear=True)
+    @patch("src.services.sms_service.Client")
+    def test_initialization_falls_back_to_env_when_db_empty(
+        self, mock_client, test_db_session
+    ):
+        """Covers REQ-3 AC 2 (env fallback preserves existing deployments)."""
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.config_source == "env"
+        assert service.from_phone == "+15558887777"
+        mock_client.assert_called_once_with(
+            "ACenv00000000000000000000000000000",
+            "env-token-fallback-9876543210",
+            http_client=ANY,
+        )
+
+    @patch.dict(os.environ, {
+        "TWILIO_ACCOUNT_SID": "ACenv00000000000000000000000000000",
+        "TWILIO_AUTH_TOKEN": "env-token-should-not-be-used",
+        "TWILIO_PHONE_NUMBER": "+15551112222",
+    }, clear=True)
+    @patch("src.services.sms_service.Client")
+    def test_initialization_db_takes_precedence_over_env(
+        self, mock_client, test_db_session
+    ):
+        """Covers REQ-3 AC 1, AC 2 (DB-over-env precedence).
+
+        When BOTH the DB and env vars are populated, the DB values must
+        be used — config_source == 'db' and from_phone matches the DB
+        phone, not the env phone.
+        """
+        os.environ["SECRET_KEY"] = "test-secret-key-precedence"  # gitleaks:allow (test-only fake key)
+
+        from src.services.settings_service import SettingsService
+
+        settings = SettingsService(test_db_session)
+        settings.set_setting(
+            "twilio_account_sid", "xxdb000000000000000000000000000001",
+            value_type="str"
+        )
+        settings.set_setting(
+            "twilio_auth_token", "db-token-wins",
+            value_type="encrypted"
+        )
+        settings.set_setting(
+            "twilio_phone_number", "+15553334444",
+            value_type="str"
+        )
+
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.config_source == "db"
+        # The DB phone wins over the env phone.
+        assert service.from_phone == "+15553334444"
+        assert service.from_phone != "+15551112222"
+        # The Twilio client was constructed with DB creds, not env creds.
+        mock_client.assert_called_once_with(
+            "xxdb000000000000000000000000000001",
+            "db-token-wins",
+            http_client=ANY,
+        )
+
+    @patch.dict(os.environ, {
+        "SMS_MOCK_MODE": "true",
+        "TWILIO_ACCOUNT_SID": "ACshouldnotbeused0000000000000000",
+        "TWILIO_AUTH_TOKEN": "should-not-be-used",
+        "TWILIO_PHONE_NUMBER": "+15559998888",
+    }, clear=True)
+    @patch("src.services.sms_service.Client")
+    def test_initialization_mock_mode_forced_via_env_var(
+        self, mock_client, test_db_session
+    ):
+        """Covers REQ-3 AC 4 (SMS_MOCK_MODE wins regardless of other config).
+
+        SMS_MOCK_MODE=true must produce config_source='mock' and prevent
+        any Twilio Client construction, even when DB/env have valid creds.
+        """
+        service = SMSService(test_db_session, mock_mode=False)
+
+        assert service.mock_mode is True
+        assert service.config_source == "mock"
+        assert service.twilio_client is None
+        mock_client.assert_not_called()
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_initialization_falls_through_when_db_decryption_fails(
+        self, test_db_session
+    ):
+        """Covers REQ-2 AC 5, REQ-3 AC 3 (graceful decrypt-failure fallback).
+
+        When the DB has Twilio rows but the auth-token ciphertext cannot
+        be decrypted (e.g. SECRET_KEY rotated, ciphertext corrupted), and
+        env vars are also unset, SMSService must NOT crash. Instead it
+        enters the unconfigured state (mock_mode=False, unconfigured=True,
+        config_source='none') so subsequent send attempts fail loudly via
+        SMSDeliveryError rather than silently logging fake successful sends.
+        """
+        os.environ["SECRET_KEY"] = "test-secret-key-decrypt-failure"  # gitleaks:allow (test-only fake key)
+
+        from src.services.settings_service import SettingsService
+
+        settings = SettingsService(test_db_session)
+        settings.set_setting(
+            "twilio_account_sid", "xxdb000000000000000000000000000099",
+            value_type="str"
+        )
+        # Persist a deliberately invalid ciphertext directly via the
+        # repository so the encrypted-type discriminator triggers a
+        # decrypt attempt that will fail.
+        settings.repository.set_value(
+            "twilio_auth_token",
+            "garbage-not-a-fernet-token",
+            "encrypted",
+            "Corrupt ciphertext under test",
+        )
+        settings.set_setting(
+            "twilio_phone_number", "+15550000000",
+            value_type="str"
+        )
+
+        # No env Twilio vars (clear=True above).
+        service = SMSService(test_db_session, mock_mode=False)
+
+        # Per CodeRabbit C2: decrypt failure falls through to "none" but
+        # MUST land in unconfigured mode (not mock_mode) so sends fail loudly.
+        assert service.mock_mode is False
+        assert service.unconfigured is True
+        assert service.config_source == "none"
+        assert service.twilio_client is None

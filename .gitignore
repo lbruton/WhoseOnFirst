@@ -204,3 +204,7 @@ coverage/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# WHO-43: Codacy CLI scan artifacts
+.codacy/
+*.sarif
