@@ -70,7 +70,6 @@ HANDOFF.md
 .codex/
 .kimi/
 .opencode/
-ROADMAP.md
 
 # E2E / Playwright test tooling (local dev only)
 .playwright-mcp/
