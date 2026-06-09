@@ -430,8 +430,10 @@
                 return;
             }
 
-            // Sort by shift_number
-            shifts.sort((a, b) => a.shift_number - b.shift_number);
+            // Sort by chronological day of week (not shift_number). shift_number is
+            // a free label that can drift out of day order (WOF-8); the rotation runs
+            // in day order, so the table must read the same way.
+            shifts.sort((a, b) => shiftDayIndex(a) - shiftDayIndex(b));
 
             tbody.innerHTML = shifts.map(shift => `
                 <tr>
@@ -605,6 +607,14 @@
 
         // Days of week in order
         const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+        // Chronological sort key for a shift (first day for 48h shifts like "Tuesday-Wednesday").
+        // Used to display shifts in weekday order regardless of their shift_number label (WOF-8).
+        function shiftDayIndex(shift) {
+            const first = (shift.day_of_week || '').split('-')[0].trim();
+            const idx = daysOrder.indexOf(first);
+            return idx === -1 ? 99 : idx;
+        }
 
         // Update hint based on duration selection
         function updateDaySelectionHint() {
@@ -854,7 +864,7 @@
                 return;
             }
 
-            var sorted = allShifts.slice().sort(function(a, b) { return a.shift_number - b.shift_number; });
+            var sorted = allShifts.slice().sort(function(a, b) { return shiftDayIndex(a) - shiftDayIndex(b); });
             var isAdmin = currentUser && currentUser.role === 'admin';
             var html = '';
             sorted.forEach(function(shift) {
