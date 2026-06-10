@@ -19,6 +19,39 @@ from fastapi.testclient import TestClient
 from twilio.base.exceptions import TwilioRestException
 
 
+class TestEscalationDigestFlagsAPI:
+    """WOF-10: per-contact weekly-digest flags on the escalation endpoints."""
+
+    def test_get_returns_digest_flags_defaulting_true(self, client: TestClient):
+        response = client.get("/api/v1/settings/escalation")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["primary_weekly_digest"] is True
+        assert data["secondary_weekly_digest"] is True
+
+    def test_put_round_trips_digest_flags(self, client: TestClient):
+        response = client.put(
+            "/api/v1/settings/escalation",
+            json={
+                "enabled": True,
+                "primary_name": "Super Visor",
+                "primary_phone": "+15554440001",
+                "secondary_name": "New Engineer",
+                "secondary_phone": "+15554440002",
+                "primary_weekly_digest": True,
+                "secondary_weekly_digest": False
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["primary_weekly_digest"] is True
+        assert data["secondary_weekly_digest"] is False
+
+        # Persisted, not just echoed
+        response = client.get("/api/v1/settings/escalation")
+        assert response.json()["secondary_weekly_digest"] is False
+
+
 class TestAutoRenewEndpoints:
     """Tests for auto-renewal configuration endpoints."""
 

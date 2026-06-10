@@ -313,8 +313,9 @@ def update_escalation_config(
     - Must be E.164 format: +1XXXXXXXXXX
     - Example: +19187019714
 
-    **Note:** Escalation contacts are display-only and do NOT receive
-    automated notifications. They are not part of the rotation schedule.
+    **Note:** Escalation contacts are not part of the rotation schedule and
+    receive no shift notifications. They can individually opt in/out of the
+    Monday weekly digest via the per-contact digest flags (WOF-10).
 
     Args:
         request: Escalation configuration update
@@ -347,7 +348,9 @@ def update_escalation_config(
             primary_name=request.primary_name,
             primary_phone=request.primary_phone,
             secondary_name=request.secondary_name,
-            secondary_phone=request.secondary_phone
+            secondary_phone=request.secondary_phone,
+            primary_weekly_digest=request.primary_weekly_digest,
+            secondary_weekly_digest=request.secondary_weekly_digest
         )
     except ValueError as e:
         raise HTTPException(

@@ -33,6 +33,12 @@ class TeamMemberBase(BaseModel):
         description="Optional secondary phone number in E.164 format (+1XXXXXXXXXX)",
         examples=["+15551234567"]
     )
+    weekly_digest_optin: bool = Field(
+        False,
+        description="Whether this member receives the Monday weekly digest SMS "
+                    "(independent of escalation-contact status)",
+        examples=[False]
+    )
 
     @field_validator('phone')
     @classmethod
@@ -131,6 +137,11 @@ class TeamMemberUpdate(BaseModel):
         pattern=r'^\+1\d{10}$',
         description="Optional secondary phone number in E.164 format (+1XXXXXXXXXX)",
         examples=["+15551234567"]
+    )
+    weekly_digest_optin: Optional[bool] = Field(
+        None,
+        description="Whether this member receives the Monday weekly digest SMS",
+        examples=[True]
     )
 
     @field_validator('phone')
@@ -236,6 +247,7 @@ class TeamMemberResponse(TeamMemberBase):
                 "phone": "+15551234567",
                 "is_active": True,
                 "rotation_order": 0,
+                "weekly_digest_optin": False,
                 "created_at": "2025-01-01T00:00:00"
             }
         }

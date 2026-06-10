@@ -993,11 +993,12 @@ class SMSService:
         escalation_config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Send weekly schedule summary SMS to all configured escalation contacts.
+        Send the weekly schedule summary SMS to opted-in escalation contacts.
 
-        Sends the provided message to all escalation contact phones (primary
-        and secondary contacts). Each send is logged individually with
-        schedule_id=NULL to indicate a weekly summary notification.
+        Thin wrapper over :meth:`send_weekly_digest` that builds the
+        recipient list from the escalation config. Each contact's
+        ``*_weekly_digest`` flag is honored individually (WOF-10); a missing
+        flag (config predating WOF-10) counts as opted in.
 
         Args:
             message: The weekly summary message text
@@ -1006,6 +1007,62 @@ class SMSService:
                 - primary_phone: Primary contact phone
                 - secondary_name: Secondary contact name
                 - secondary_phone: Secondary contact phone
+                - primary_weekly_digest: Primary digest opt-in (default True)
+                - secondary_weekly_digest: Secondary digest opt-in (default True)
+
+        Returns:
+            Dictionary with send results (see send_weekly_digest)
+
+        Example:
+            >>> config = settings_service.get_escalation_config()
+            >>> message = sms_service._compose_weekly_summary(schedules)
+            >>> result = sms_service.send_escalation_weekly_summary(message, config)
+            >>> print(f"Sent to {result['successful']}/{result['total']} contacts")
+        """
+        contacts = []
+
+        # Primary escalation contact (individually opted in)
+        if (escalation_config.get('primary_name')
+                and escalation_config.get('primary_phone')
+                and escalation_config.get('primary_weekly_digest', True)):
+            contacts.append({
+                "name": escalation_config['primary_name'],
+                "phone": escalation_config['primary_phone'],
+                "label": "Primary Escalation Contact"
+            })
+
+        # Secondary escalation contact (individually opted in)
+        if (escalation_config.get('secondary_name')
+                and escalation_config.get('secondary_phone')
+                and escalation_config.get('secondary_weekly_digest', True)):
+            contacts.append({
+                "name": escalation_config['secondary_name'],
+                "phone": escalation_config['secondary_phone'],
+                "label": "Secondary Escalation Contact"
+            })
+
+        return self.send_weekly_digest(message, contacts)
+
+    def send_weekly_digest(
+        self,
+        message: str,
+        recipients: list
+    ) -> Dict[str, Any]:
+        """
+        Send the weekly schedule digest SMS to a list of recipients (WOF-10).
+
+        Sends the provided message to every recipient. Each send is logged
+        individually with schedule_id=NULL to indicate a weekly digest
+        notification. Recipients may be escalation contacts or opted-in team
+        members — the caller decides (see
+        scheduler.schedule_manager.collect_weekly_digest_recipients).
+
+        Args:
+            message: The weekly digest message text
+            recipients: List of dicts with keys:
+                - name: Recipient display name
+                - phone: Recipient phone (E.164)
+                - label: Recipient role label for logs/details
 
         Returns:
             Dictionary with send results:
@@ -1015,14 +1072,8 @@ class SMSService:
                 "total": int (total attempted sends),
                 "details": list of individual send results
             }
-
-        Example:
-            >>> config = settings_service.get_escalation_config()
-            >>> message = sms_service._compose_weekly_summary(schedules)
-            >>> result = sms_service.send_escalation_weekly_summary(message, config)
-            >>> print(f"Sent to {result['successful']}/{result['total']} contacts")
         """
-        logger.info("Sending weekly escalation summary to configured contacts")
+        logger.info("Sending weekly digest to %d recipients", len(recipients))
 
         results = {
             "successful": 0,
@@ -1031,24 +1082,7 @@ class SMSService:
             "details": []
         }
 
-        # Collect all contacts to send to
-        contacts = []
-
-        # Primary escalation contact
-        if escalation_config.get('primary_name') and escalation_config.get('primary_phone'):
-            contacts.append({
-                "name": escalation_config['primary_name'],
-                "phone": escalation_config['primary_phone'],
-                "label": "Primary Escalation Contact"
-            })
-
-        # Secondary escalation contact
-        if escalation_config.get('secondary_name') and escalation_config.get('secondary_phone'):
-            contacts.append({
-                "name": escalation_config['secondary_name'],
-                "phone": escalation_config['secondary_phone'],
-                "label": "Secondary Escalation Contact"
-            })
+        contacts = recipients
 
         # Send to each contact
         for contact in contacts:
