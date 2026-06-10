@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-06-10
+
+### Fixed
+
+- **Auto-renewal never extended the schedule** (WOF-15) — `check_auto_renewal()` passed the naive `end_datetime` from SQLite to `generate_schedule()`, which rejects naive datetimes, so the 2:00 AM job crashed every time it crossed the threshold. The value is now localized to America/Chicago before generation.
+- **Rotation no longer silently shifts a day on a mid-week start** (WOF-9) — the rotation anchors at the chosen start date instead of snapping to Monday; the generate endpoint returns a `{schedules, warnings}` envelope and the UI confirms before generating.
+- **Shift reordering no longer scrambles rotation order** (WOF-8) — shifts sort by day-of-week independently of `shift_number`.
+- **Version surfaces no longer drift** (WOF-14) — `GET /health`, `GET /api`, the OpenAPI/Swagger version, `GET /api/v1/version`, and data-export provenance all read the canonical `VERSION` file via a shared `get_app_version()` helper (previously hardcoded at `0.2.0` / `1.0.3` / `1.2.0` / `1.5.0`).
+
+### Added
+
+- **Per-member Monday digest opt-in** (WOF-10) — `team_members.weekly_digest_optin`, decoupled from escalation grouping (defaults off).
+- **Playwright e2e tooling tracked in git** (WOF-22) — config, specs (incl. the WOF-18 XSS regression), and a pinned `@playwright/test`.
+
+### Security
+
+- **Path-traversal guard on the SPA static-file catch-all** (WOF-17, CodeQL py/path-injection) — requests resolving outside `frontend/` fall back to the SPA shell instead of serving arbitrary files.
+- **Frontend XSS removed** (WOF-18, CodeQL js/xss-through-dom + js/incomplete-sanitization) — member actions use delegated listeners; card renderers rebuild markup from escaped data instead of re-injecting cell innerHTML.
+- **Stack-trace text no longer returned to clients** (WOF-19, CodeQL py/stack-trace-exposure) — manual-trigger endpoints return generic messages; full tracebacks are logged server-side.
+
+---
+
 ## [1.7.0] - 2026-04-25
 
 ### Added
@@ -1177,7 +1199,8 @@ These limitations are intentional design choices for the MVP. Future enhancement
 
 ---
 
-[Unreleased]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.6.1...v1.7.0
 [1.5.0]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/Lonnie-Bruton/WhoseOnFirst/compare/v1.3.1...v1.4.0

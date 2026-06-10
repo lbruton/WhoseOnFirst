@@ -1,15 +1,10 @@
-from pathlib import Path
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/api/v1", tags=["version"])
+from src.version import get_app_version
 
-_VERSION_FILE = Path(__file__).resolve().parents[3] / "VERSION"
+router = APIRouter(prefix="/api/v1", tags=["version"])
 
 
 @router.get("/version")
 def get_version():
-    try:
-        version = _VERSION_FILE.read_text().strip()
-    except FileNotFoundError:
-        version = "unknown"
-    return {"version": version}
+    return {"version": get_app_version()}

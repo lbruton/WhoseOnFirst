@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 # Import routers
 from src.api.routes import team_members, shifts, schedules, notifications, auth, settings, schedule_overrides, admin
 from src.api.routes.version import router as version_router
+from src.version import get_app_version
 from src.scheduler import get_schedule_manager
 from src.models.database import SessionLocal
 from src.models.user import User, UserRole
@@ -91,7 +92,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="WhoseOnFirst API",
     description="Automated on-call rotation and SMS notification system for technical teams",
-    version="1.2.0",
+    version=get_app_version(),
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -125,7 +126,7 @@ async def api_info():
     """
     return {
         "name": "WhoseOnFirst API",
-        "version": "1.0.3",
+        "version": get_app_version(),
         "description": "On-call rotation and SMS notification system",
         "docs": "/docs",
         "redoc": "/redoc"
@@ -144,7 +145,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "whoseonfirst-api",
-        "version": "0.2.0"
+        "version": get_app_version()
     }
 
 
