@@ -193,7 +193,7 @@ app.include_router(version_router)
 
 # Mount static files (frontend) - MUST be after API routes to avoid conflicts
 # Serve frontend from the frontend directory
-frontend_path = Path(__file__).parent.parent / "frontend"
+frontend_path = (Path(__file__).parent.parent / "frontend").resolve()
 if frontend_path.exists():
     app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
     logger.info(f"Serving frontend from: {frontend_path}")
@@ -227,13 +227,16 @@ if frontend_path.exists():
             if file_path.exists():
                 return FileResponse(file_path, headers=no_cache_headers)
 
-        # Check if the file exists directly
-        file_path = frontend_path / full_path
-        if file_path.exists() and file_path.is_file():
+        # Check if the file exists directly — guard against path traversal (CodeQL py/path-injection)
+        try:
+            resolved = (frontend_path / full_path).resolve()
+        except (ValueError, OSError):
+            resolved = None  # malformed path (e.g. NUL byte) -> SPA fallback
+        if resolved is not None and resolved.is_relative_to(frontend_path) and resolved.is_file():
             # HTML and sw.js must never be cached — stale sw.js breaks all future SW cache busts
-            if str(file_path).endswith(".html") or file_path.name == "sw.js":
-                return FileResponse(file_path, headers=no_cache_headers)
-            return FileResponse(file_path)
+            if resolved.name.endswith(".html") or resolved.name == "sw.js":
+                return FileResponse(resolved, headers=no_cache_headers)
+            return FileResponse(resolved)
 
         # Default to index.html for SPA routes
         return FileResponse(frontend_path / "index.html", headers=no_cache_headers)
