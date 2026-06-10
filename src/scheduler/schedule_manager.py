@@ -469,7 +469,7 @@ def check_auto_renewal() -> None:
                 renewal_start = (
                     furthest_date
                     if furthest_date.tzinfo is not None
-                    else CHICAGO_TZ.localize(furthest_date)
+                    else CHICAGO_TZ.localize(furthest_date, is_dst=False)
                 )
                 try:
                     new_schedules = schedule_service.generate_schedule(
