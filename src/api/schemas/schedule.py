@@ -5,7 +5,7 @@ Request and response models for schedule API endpoints.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
 from pytz import timezone
 
@@ -108,6 +108,30 @@ class ScheduleResponse(BaseModel):
                 "created_at": "2025-01-01T00:00:00"
             }
         }
+
+
+class ScheduleGenerateResponse(BaseModel):
+    """
+    Schema for schedule generation responses (WOF-9).
+
+    Wraps the generated assignments together with non-blocking warnings —
+    e.g. the start date is today but the daily 8:00 AM notification has
+    already run, or no shift covers the chosen start date because it fell
+    mid-way through a multi-day shift.
+    """
+    schedules: List[ScheduleResponse] = Field(
+        ...,
+        description="The generated schedule assignments"
+    )
+    warnings: List[str] = Field(
+        default_factory=list,
+        description="Non-blocking warnings about the generated period",
+        examples=[[
+            "Today's 8:00 AM notification has already run; today's on-call "
+            "will not receive an SMS unless notifications are triggered "
+            "manually."
+        ]]
+    )
 
 
 class ScheduleGenerateRequest(BaseModel):

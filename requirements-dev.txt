@@ -32,5 +32,5 @@ sqlalchemy-utils==0.41.1
 
 # Testing Utilities
 faker==21.0.0  # Generate test data
-freezegun==1.4.0  # Mock datetime
+freezegun==1.5.5  # Mock datetime (1.5+ required for Python 3.13)
 responses==0.24.1  # Mock HTTP requests

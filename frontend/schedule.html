@@ -557,11 +557,28 @@
             const autoRenewEnabled = document.getElementById('autoRenewEnabled').checked;
             const btn = document.getElementById('createScheduleBtn');
 
-            // Convert local date to ISO datetime with CST timezone
+            // Starting today after the 8 AM notification means today's on-call
+            // gets no SMS — confirm before generating. Client clock is advisory;
+            // the server returns the authoritative warning either way (WOF-9).
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            if (startDate === todayStr && now.getHours() >= 8) {
+                const proceed = confirm(
+                    "Today's 8:00 AM notification has already gone out — " +
+                    "today's on-call will not receive an SMS unless you " +
+                    "trigger notifications manually.\n\nGenerate anyway?"
+                );
+                if (!proceed) return;
+            }
+
+            // Convert local date to an ISO datetime at 8:00 AM local time,
+            // with the real UTC offset (covers CST -06:00 and CDT -05:00)
             const startDateTime = new Date(startDate + 'T08:00:00');
-            const offset = startDateTime.getTimezoneOffset();
-            startDateTime.setMinutes(startDateTime.getMinutes() - offset);
-            const isoDateTime = startDateTime.toISOString().replace('Z', '-06:00');
+            const offsetMin = -startDateTime.getTimezoneOffset();
+            const offsetSign = offsetMin >= 0 ? '+' : '-';
+            const offsetAbs = Math.abs(offsetMin);
+            const offsetStr = `${offsetSign}${String(Math.floor(offsetAbs / 60)).padStart(2, '0')}:${String(offsetAbs % 60).padStart(2, '0')}`;
+            const isoDateTime = startDate + 'T08:00:00' + offsetStr;
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating...';
@@ -595,7 +612,11 @@
                         console.error('Failed to save auto-renewal setting:', settingsError);
                     }
 
-                    alert(`✅ Successfully created ${result.length} schedule assignments!`);
+                    let message = `✅ Successfully created ${result.schedules.length} schedule assignments!`;
+                    if (result.warnings && result.warnings.length > 0) {
+                        message += '\n\n⚠️ ' + result.warnings.join('\n⚠️ ');
+                    }
+                    alert(message);
                     setTimeout(() => {
                         window.location.reload();
                     }, 500);
