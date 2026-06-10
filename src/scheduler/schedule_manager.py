@@ -382,10 +382,10 @@ def trigger_notifications_manually(force: bool = False) -> dict:
             'total': result['total']
         }
     except Exception as e:
-        logger.error("Manual notification trigger failed: %s", str(e))
+        logger.error("Manual notification trigger failed: %s", str(e), exc_info=True)
         return {
             'status': 'error',
-            'message': str(e),
+            'message': 'Daily notification job failed - see server logs',
             'timestamp': datetime.now(CHICAGO_TZ).isoformat(),
             'successful': 0,
             'failed': 0,
@@ -703,10 +703,10 @@ def trigger_weekly_summary_manually() -> dict:
             'total': result.get('total', 0)
         }
     except Exception as e:
-        logger.error("Manual weekly summary trigger failed: %s", str(e))
+        logger.error("Manual weekly summary trigger failed: %s", str(e), exc_info=True)
         return {
             'status': 'error',
-            'message': str(e),
+            'message': 'Weekly summary job failed - see server logs',
             'timestamp': datetime.now(CHICAGO_TZ).isoformat(),
             'successful': 0,
             'failed': 0,
@@ -782,10 +782,10 @@ def trigger_override_completion_manually() -> dict:
             'completed_count': result.get('completed_count', 0)
         }
     except Exception as e:
-        logger.error("Manual override completion trigger failed: %s", str(e))
+        logger.error("Manual override completion trigger failed: %s", str(e), exc_info=True)
         return {
             'status': 'error',
-            'message': str(e),
+            'message': 'Override completion job failed - see server logs',
             'timestamp': datetime.now(CHICAGO_TZ).isoformat(),
             'completed_count': 0
         }

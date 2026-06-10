@@ -8,6 +8,7 @@ from freezegun import freeze_time
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from pytz import timezone
+from unittest.mock import patch
 
 from src.models.team_member import TeamMember
 from src.models.shift import Shift
@@ -533,3 +534,35 @@ class TestScheduleIntegration:
             }
         )
         assert response.status_code == 200
+
+
+class TestTriggerEndpointsErrorSanitization:
+    """Tests that manual-trigger endpoints never expose raw exception text (WOF-19)."""
+
+    def test_trigger_notifications_error_hides_exception_detail(self, client: TestClient):
+        """A failing notification job must return a generic message, not str(e)."""
+        with patch(
+            "src.scheduler.schedule_manager.send_daily_notifications"
+        ) as mock_send:
+            mock_send.side_effect = Exception("SECRET-INTERNAL-DETAIL")
+            response = client.post("/api/v1/schedules/notifications/trigger")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "error"
+        assert body["message"] == "Daily notification job failed - see server logs"
+        assert "SECRET-INTERNAL-DETAIL" not in response.text
+
+    def test_trigger_weekly_summary_error_hides_exception_detail(self, client: TestClient):
+        """A failing weekly summary job must return a generic message, not str(e)."""
+        with patch(
+            "src.scheduler.schedule_manager.send_weekly_escalation_summary"
+        ) as mock_send:
+            mock_send.side_effect = Exception("SECRET-INTERNAL-DETAIL")
+            response = client.post("/api/v1/schedules/notifications/weekly-summary/trigger")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "error"
+        assert body["message"] == "Weekly summary job failed - see server logs"
+        assert "SECRET-INTERNAL-DETAIL" not in response.text
