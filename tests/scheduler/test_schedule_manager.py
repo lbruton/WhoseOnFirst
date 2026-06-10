@@ -8,7 +8,7 @@ Covers: send_daily_notifications, trigger_notifications_manually,
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock, PropertyMock
 from contextlib import contextmanager
 
@@ -173,6 +173,70 @@ class TestCheckAutoRenewal:
             check_auto_renewal()
 
             MockSchedule.return_value.generate_schedule.assert_called_once()
+
+    def test_generation_receives_timezone_aware_start_date(self):
+        """The DB returns naive datetimes; generate_schedule requires tz-aware (WOF-15)."""
+        mock_db = MagicMock()
+        mock_schedule = MagicMock()
+        mock_schedule.end_datetime = datetime.now() + timedelta(days=2)  # naive, like the DB
+
+        with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.ScheduleService") as MockSchedule:
+            MockSettings.return_value.is_auto_renew_enabled.return_value = True
+            MockSettings.return_value.get_auto_renew_threshold_weeks.return_value = 4
+            MockSettings.return_value.get_auto_renew_weeks.return_value = 8
+            MockSchedule.return_value.schedule_repo.get_all.return_value = [mock_schedule]
+            MockSchedule.return_value.generate_schedule.return_value = [MagicMock()] * 10
+
+            check_auto_renewal()
+
+            MockSchedule.return_value.generate_schedule.assert_called_once()
+            passed_start = MockSchedule.return_value.generate_schedule.call_args.kwargs["start_date"]
+            assert passed_start.tzinfo is not None, (
+                "check_auto_renewal must localize the naive DB end_datetime before "
+                "calling generate_schedule, which rejects naive datetimes"
+            )
+
+    def test_renewal_with_real_schedule_service(self, db_session):
+        """End-to-end against the real ScheduleService — the seam the mocks hide (WOF-15)."""
+        from src.models.team_member import TeamMember
+        from src.models.shift import Shift
+        from src.models.schedule import Schedule
+        from src.scheduler.schedule_manager import CHICAGO_TZ
+
+        members = [
+            TeamMember(name="Alice", phone="+15551111111", is_active=True, rotation_order=0),
+            TeamMember(name="Bob", phone="+15552222222", is_active=True, rotation_order=1),
+        ]
+        db_session.add_all(members)
+        shift = Shift(shift_number=1, day_of_week="Monday", duration_hours=24, start_time="08:00")
+        db_session.add(shift)
+        db_session.commit()
+
+        # One schedule ending in 2 days — naive, exactly as the repository stores it
+        now_naive = datetime.now(CHICAGO_TZ).replace(tzinfo=None)
+        db_session.add(Schedule(
+            team_member_id=members[0].id,
+            shift_id=shift.id,
+            week_number=1,
+            start_datetime=now_naive + timedelta(days=1),
+            end_datetime=now_naive + timedelta(days=2),
+            notified=False,
+        ))
+        db_session.commit()
+
+        with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(db_session)), \
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings:
+            MockSettings.return_value.is_auto_renew_enabled.return_value = True
+            MockSettings.return_value.get_auto_renew_threshold_weeks.return_value = 4
+            MockSettings.return_value.get_auto_renew_weeks.return_value = 4
+
+            # Pre-fix this raises ValueError("start_date must be timezone-aware")
+            check_auto_renewal()
+
+        new_count = db_session.query(Schedule).count()
+        assert new_count > 1, "auto-renewal should have generated new schedule rows"
 
 
 # ---------------------------------------------------------------------------

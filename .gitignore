@@ -76,10 +76,10 @@ HANDOFF.md
 .worktrees/
 .claude/worktrees/
 
-# E2E / Playwright test tooling (local dev only)
+# E2E / Playwright — specs and config are tracked (WOF-22); only outputs are ignored
 .playwright-mcp/
-playwright.config.js
-e2e/
+test-results/
+playwright-report/
 
 # Documentation
 # Foundation docs are tracked in .context/ (NOT ignored). docs/ now holds only
