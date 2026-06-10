@@ -703,7 +703,7 @@
                             '<i class="ti ti-pencil"></i>' +
                         '</button>' +
                         '<button class="btn btn-sm btn-outline-' + (member.is_active ? 'warning' : 'success') + ' admin-only" ' +
-                                'onclick="toggleActive(event, ' + member.id + ', ' + member.is_active + ', \'' + escapeHtml(member.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(member.phone).replace(/'/g, "\\'") + '\')" ' +
+                                'data-action="toggle-active" ' +
                                 'title="' + (member.is_active ? 'Deactivate' : 'Activate') + '">' +
                             '<i class="ti ti-user-' + (member.is_active ? 'minus' : 'plus') + '"></i>' +
                         '</button>' +
@@ -1035,6 +1035,18 @@
                     e.preventDefault();
                     applyFilter(this.getAttribute('data-filter'));
                 });
+            });
+
+            // Delegated toggle-active handler — keeps member name/phone out of
+            // inline onclick JS strings (WOF-18, CodeQL js/incomplete-sanitization)
+            document.getElementById('membersContainer').addEventListener('click', function(e) {
+                const btn = e.target.closest('[data-action="toggle-active"]');
+                if (!btn) return;
+                const row = btn.closest('[data-member-id]');
+                if (!row) return;
+                const id = parseInt(row.dataset.memberId, 10);
+                const member = allMembers.find(m => m.id === id);
+                if (member) toggleActive(e, id, member.is_active, member.name, member.phone);
             });
         });
 

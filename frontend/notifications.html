@@ -619,6 +619,22 @@
             return phone.slice(0, -4) + 'XXXX';
         }
 
+        // Escape HTML entities (WOF-18 — values interpolated into innerHTML)
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Map a notification status to its badge class (whitelist — shared by
+        // the table builder and the card renderer so they can't drift)
+        function statusBadgeClass(status) {
+            if (status === 'sent' || status === 'delivered') return 'bg-success';
+            if (status === 'failed' || status === 'undelivered') return 'bg-danger';
+            if (status === 'pending') return 'bg-warning';
+            return 'bg-secondary';
+        }
+
         // Load notification stats
         async function loadStats() {
             try {
@@ -726,8 +742,8 @@
                         const initials = recipientName.split(' ').map(n => n[0]).join('').toUpperCase();
                         recipientCell.innerHTML = `
                             <div class="d-flex align-items-center">
-                                <span class="avatar avatar-sm me-2 ${colorClass}" style="color: white;">${initials}</span>
-                                ${recipientName}
+                                <span class="avatar avatar-sm me-2 ${colorClass}" style="color: white;">${escapeHtml(initials)}</span>
+                                ${escapeHtml(recipientName)}
                             </div>
                         `;
                     } else {
@@ -742,25 +758,19 @@
 
                     // Status
                     const statusCell = document.createElement('td');
-                    let badgeClass = 'bg-secondary';
-                    if (notification.status === 'sent' || notification.status === 'delivered') {
-                        badgeClass = 'bg-success';
-                    } else if (notification.status === 'failed' || notification.status === 'undelivered') {
-                        badgeClass = 'bg-danger';
-                    } else if (notification.status === 'pending') {
-                        badgeClass = 'bg-warning';
-                    }
-                    statusCell.innerHTML = `<span class="badge ${badgeClass}" style="color: white;">${notification.status}</span>`;
+                    statusCell.innerHTML = `<span class="badge ${statusBadgeClass(notification.status)}" style="color: white;">${escapeHtml(notification.status)}</span>`;
                     row.appendChild(statusCell);
+                    row.dataset.status = notification.status;
 
                     // Twilio SID (clickable link to Twilio Console)
                     const sidCell = document.createElement('td');
                     if (notification.twilio_sid) {
-                        const twilioUrl = `https://console.twilio.com/us1/monitor/logs/sms/${notification.twilio_sid}`;
+                        const twilioUrl = `https://console.twilio.com/us1/monitor/logs/sms/${encodeURIComponent(notification.twilio_sid)}`;
                         sidCell.innerHTML = `<a href="${twilioUrl}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
-                            <code class="text-primary">${notification.twilio_sid.substring(0, 15)}...</code>
+                            <code class="text-primary">${escapeHtml(notification.twilio_sid.substring(0, 15))}...</code>
                             <i class="ti ti-external-link ms-1" style="font-size: 0.75rem;"></i>
                         </a>`;
+                        row.dataset.twilioSid = notification.twilio_sid;
                     } else {
                         sidCell.textContent = '-';
                     }
@@ -1050,19 +1060,28 @@ Your shift lasts {duration}. Thank you for being available!`;
                 var cells = row.querySelectorAll('td');
                 if (cells.length >= 5) {
                     // cells: 0=Timestamp, 1=Recipient, 2=Phone, 3=Status, 4=Twilio SID, 5=Actions
+                    // Rebuild markup from text + dataset instead of copying cell innerHTML
+                    // (WOF-18, CodeQL js/xss-through-dom)
+                    var status = row.dataset.status || cells[3].textContent.trim();
+                    var statusBadge = '<span class="badge ' + statusBadgeClass(status) + '" style="color: white;">' + escapeHtml(status) + '</span>';
+                    var sid = row.dataset.twilioSid || '';
+                    var sidLink = sid ?
+                        '<div class="msg-preview"><a href="https://console.twilio.com/us1/monitor/logs/sms/' + encodeURIComponent(sid) + '" target="_blank" rel="noopener noreferrer" class="text-decoration-none">' +
+                        '<code class="text-primary">' + escapeHtml(sid.substring(0, 15)) + '...</code>' +
+                        '<i class="ti ti-external-link ms-1" style="font-size: 0.75rem;"></i>' +
+                        '</a></div>' : '';
                     html += '<div class="col-12">' +
                         '<div class="card notif-card mb-0">' +
                         '<div class="card-body py-2 px-3">' +
                         '<div class="card-row">' +
-                        '<div><span class="card-label">Date</span><div class="card-value">' + cells[0].textContent + '</div></div>' +
-                        cells[3].innerHTML +
+                        '<div><span class="card-label">Date</span><div class="card-value">' + escapeHtml(cells[0].textContent) + '</div></div>' +
+                        statusBadge +
                         '</div>' +
                         '<div class="card-row">' +
-                        '<div><span class="card-label">Recipient</span><div class="card-value">' + cells[1].textContent + '</div></div>' +
-                        '<div class="text-muted" style="font-size:0.75rem;">' + cells[2].textContent + '</div>' +
+                        '<div><span class="card-label">Recipient</span><div class="card-value">' + escapeHtml(cells[1].textContent) + '</div></div>' +
+                        '<div class="text-muted" style="font-size:0.75rem;">' + escapeHtml(cells[2].textContent) + '</div>' +
                         '</div>' +
-                        (cells[4] && cells[4].textContent.trim() !== '-' ?
-                            '<div class="msg-preview">' + cells[4].innerHTML + '</div>' : '') +
+                        sidLink +
                         '</div></div></div>';
                 }
             });
