@@ -101,7 +101,8 @@ class TestTriggerNotificationsManually:
             result = trigger_notifications_manually()
 
         assert result["status"] == "error"
-        assert "Twilio down" in result["message"]
+        assert result["message"] == "Daily notification job failed - see server logs"
+        assert "Twilio down" not in result["message"]
         assert result["successful"] == 0
 
 
@@ -392,7 +393,8 @@ class TestTriggerWeeklySummaryManually:
             result = trigger_weekly_summary_manually()
 
         assert result["status"] == "error"
-        assert "connection failed" in result["message"]
+        assert result["message"] == "Weekly summary job failed - see server logs"
+        assert "connection failed" not in result["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -443,7 +445,8 @@ class TestTriggerOverrideCompletionManually:
             result = trigger_override_completion_manually()
 
         assert result["status"] == "error"
-        assert "override error" in result["message"]
+        assert result["message"] == "Override completion job failed - see server logs"
+        assert "override error" not in result["message"]
         assert result["completed_count"] == 0
 
 
