@@ -12,9 +12,10 @@ from sqlalchemy.orm import Session
 
 from src.models import TeamMember, Shift, Schedule
 from src.models.settings import Settings
+from src.version import get_app_version
 
+# Version of the .stvault envelope format — independent of the app version
 SCHEMA_VERSION = "1.0"
-APP_VERSION = "1.5.0"
 
 
 def _dt(value) -> str | None:
@@ -40,7 +41,7 @@ class ExportService:
         return {
             "schema_version": SCHEMA_VERSION,
             "exported_at": datetime.now(timezone.utc).isoformat(),
-            "app_version": APP_VERSION,
+            "app_version": get_app_version(),
             "data": {
                 "team_members": self._export_team_members(),
                 "shifts": self._export_shifts(),

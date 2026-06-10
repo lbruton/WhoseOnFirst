@@ -90,6 +90,13 @@ class TestExportEnvelope:
         result = export_service.export_all()
         assert result["schema_version"] == SCHEMA_VERSION
 
+    def test_app_version_is_canonical(self, export_service):
+        """Export provenance must track the VERSION file, not a stale literal (WOF-14)."""
+        from src.version import get_app_version
+
+        result = export_service.export_all()
+        assert result["app_version"] == get_app_version()
+
     def test_exported_at_is_iso_string(self, export_service):
         result = export_service.export_all()
         # Should parse without error

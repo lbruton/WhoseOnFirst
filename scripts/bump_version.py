@@ -10,12 +10,15 @@ Usage:
     python scripts/bump_version.py 1.1.0 --changelog "Added new feature X"
 
 Updates version in:
+- VERSION (canonical source of truth — every runtime surface reads this)
 - README.md (badge + current version)
-- src/main.py (FastAPI app + API endpoint)
-- frontend/components/sidebar.html (footer badge)
 - CLAUDE.md (multiple locations)
 - Foundation docs (.context/ files)
 - CHANGELOG.md (creates new release entry)
+
+Runtime surfaces (src/main.py FastAPI app + /api + /health, /api/v1/version,
+and the sidebar footer badge) read VERSION dynamically, so they need no
+rewriting here — bumping VERSION is enough (WOF-14).
 """
 
 import sys
@@ -63,12 +66,10 @@ def print_error(text: str):
     print(f"{Colors.RED}✗ {text}{Colors.END}")
 
 
-def get_current_version(file_path: Path) -> str:
-    """Extract current version from main.py"""
-    content = file_path.read_text()
-    match = re.search(r'version="(\d+\.\d+\.\d+)"', content)
-    if match:
-        return match.group(1)
+def get_current_version(version_file: Path) -> str:
+    """Read the current version from the canonical VERSION file."""
+    if version_file.exists():
+        return version_file.read_text().strip()
     return "unknown"
 
 
@@ -191,9 +192,11 @@ def main():
     # Project root
     root = Path(__file__).parent.parent
 
-    # Get current version from main.py
-    main_py = root / "src" / "main.py"
-    old_version = get_current_version(main_py)
+    # Get current version from the canonical VERSION file (single source of truth).
+    # src/main.py now derives its version from VERSION at runtime (WOF-14), so the
+    # only literals left to rewrite are VERSION itself and the docs.
+    version_file = root / "VERSION"
+    old_version = get_current_version(version_file)
 
     print_header(f"WhoseOnFirst Version Bump: {old_version} → {new_version}")
 
@@ -206,11 +209,12 @@ def main():
 
     # Files to update
     files_to_update = [
-        # Core application files
-        root / "src" / "main.py",
+        # Canonical source of truth — every runtime surface reads this
+        root / "VERSION",
+
+        # Docs that embed the version as text
         root / "README.md",
         root / "CLAUDE.md",
-        root / "frontend" / "components" / "sidebar.html",
 
         # Foundation docs (.context/)
         root / ".context" / "architecture.md",
