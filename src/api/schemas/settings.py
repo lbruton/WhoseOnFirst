@@ -136,6 +136,14 @@ class EscalationConfigResponse(BaseModel):
     primary_phone: Optional[str] = Field(None, description="Primary escalation contact phone (E.164 format)")
     secondary_name: Optional[str] = Field(None, description="Secondary escalation contact name")
     secondary_phone: Optional[str] = Field(None, description="Secondary escalation contact phone (E.164 format)")
+    primary_weekly_digest: bool = Field(
+        True,
+        description="Whether the primary escalation contact receives the Monday weekly digest (WOF-10)"
+    )
+    secondary_weekly_digest: bool = Field(
+        True,
+        description="Whether the secondary escalation contact receives the Monday weekly digest (WOF-10)"
+    )
 
 
 class EscalationConfigRequest(BaseModel):
@@ -155,4 +163,12 @@ class EscalationConfigRequest(BaseModel):
         description="Secondary escalation contact phone (E.164 format: +1XXXXXXXXXX)",
         pattern=r"^\+1\d{10}$",
         examples=["+19187019714"]
+    )
+    primary_weekly_digest: Optional[bool] = Field(
+        None,
+        description="Whether the primary escalation contact receives the Monday weekly digest (None = unchanged)"
+    )
+    secondary_weekly_digest: Optional[bool] = Field(
+        None,
+        description="Whether the secondary escalation contact receives the Monday weekly digest (None = unchanged)"
     )

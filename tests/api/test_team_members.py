@@ -119,6 +119,52 @@ class TestCreateTeamMember:
         assert response.status_code == 422  # Pydantic validation error
 
 
+class TestWeeklyDigestOptin:
+    """WOF-10: per-member Monday weekly-digest opt-in flag."""
+
+    def test_create_defaults_to_false(self, client: TestClient):
+        """Omitting the flag creates a member opted out of the digest."""
+        response = client.post(
+            "/api/v1/team-members/",
+            json={"name": "Default Dana", "phone": "+15553330001"}
+        )
+        assert response.status_code == 201
+        assert response.json()["weekly_digest_optin"] is False
+
+    def test_create_with_optin_true(self, client: TestClient):
+        """The flag can be set at creation time."""
+        response = client.post(
+            "/api/v1/team-members/",
+            json={
+                "name": "Digest Dave",
+                "phone": "+15553330002",
+                "weekly_digest_optin": True
+            }
+        )
+        assert response.status_code == 201
+        assert response.json()["weekly_digest_optin"] is True
+
+    def test_update_toggles_optin(self, client: TestClient, db_session: Session):
+        """The flag can be toggled via PUT."""
+        member = TeamMember(name="Toggle Tom", phone="+15553330003", is_active=True)
+        db_session.add(member)
+        db_session.commit()
+
+        response = client.put(
+            f"/api/v1/team-members/{member.id}",
+            json={"weekly_digest_optin": True}
+        )
+        assert response.status_code == 200
+        assert response.json()["weekly_digest_optin"] is True
+
+        response = client.put(
+            f"/api/v1/team-members/{member.id}",
+            json={"weekly_digest_optin": False}
+        )
+        assert response.status_code == 200
+        assert response.json()["weekly_digest_optin"] is False
+
+
 class TestUpdateTeamMember:
     """Tests for PUT /api/v1/team-members/{id}"""
 

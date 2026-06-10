@@ -153,6 +153,36 @@ class TestSetEscalationConfig:
         assert "secondary_phone" in result
 
 
+class TestEscalationDigestFlags:
+    """WOF-10: per-contact weekly-digest opt-in flags on the escalation config.
+
+    Defaults are True so existing escalation contacts keep receiving the
+    Monday digest after the migration (AC: preserve current behavior).
+    """
+
+    def test_digest_flags_default_true(self, service):
+        config = service.get_escalation_config()
+        assert config["primary_weekly_digest"] is True
+        assert config["secondary_weekly_digest"] is True
+
+    def test_primary_opt_out_round_trips(self, service):
+        service.set_escalation_config(enabled=True, primary_weekly_digest=False)
+        config = service.get_escalation_config()
+        assert config["primary_weekly_digest"] is False
+        # Secondary is independent and untouched
+        assert config["secondary_weekly_digest"] is True
+
+    def test_flags_are_independent(self, service):
+        service.set_escalation_config(
+            enabled=True,
+            primary_weekly_digest=True,
+            secondary_weekly_digest=False
+        )
+        config = service.get_escalation_config()
+        assert config["primary_weekly_digest"] is True
+        assert config["secondary_weekly_digest"] is False
+
+
 class TestSettingsRepr:
 
     def test_settings_repr(self, service):

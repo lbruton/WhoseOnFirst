@@ -20,6 +20,7 @@ from src.scheduler.schedule_manager import (
     trigger_weekly_summary_manually,
     complete_past_overrides,
     trigger_override_completion_manually,
+    collect_weekly_digest_recipients,
     ScheduleManager,
 )
 
@@ -190,22 +191,26 @@ class TestSendWeeklyEscalationSummary:
         assert result["total"] == 0
         assert result["message"] == "Feature disabled"
 
-    def test_escalation_contacts_disabled_returns_early(self):
+    def test_no_recipients_returns_early(self):
+        """WOF-10: escalation disabled + no opted-in members = nothing to send."""
         mock_db = MagicMock()
         with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
-             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings:
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers:
             MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
             MockSettings.return_value.get_escalation_config.return_value = {"enabled": False}
+            MockMembers.return_value.get_digest_recipients.return_value = []
 
             result = send_weekly_escalation_summary()
 
         assert result["total"] == 0
-        assert result["message"] == "Escalation contacts disabled"
+        assert result["message"] == "No digest recipients"
 
-    def test_no_contacts_configured_returns_early(self):
+    def test_empty_contacts_and_no_members_returns_early(self):
         mock_db = MagicMock()
         with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
-             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings:
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers:
             MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
             MockSettings.return_value.get_escalation_config.return_value = {
                 "enabled": True,
@@ -214,11 +219,12 @@ class TestSendWeeklyEscalationSummary:
                 "secondary_name": "",
                 "secondary_phone": "",
             }
+            MockMembers.return_value.get_digest_recipients.return_value = []
 
             result = send_weekly_escalation_summary()
 
         assert result["total"] == 0
-        assert result["message"] == "No contacts configured"
+        assert result["message"] == "No digest recipients"
 
     def test_success_sends_to_contacts(self):
         mock_db = MagicMock()
@@ -234,17 +240,133 @@ class TestSendWeeklyEscalationSummary:
         with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
              patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
              patch("src.scheduler.schedule_manager.ScheduleService") as MockSchedule, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers, \
              patch("src.scheduler.schedule_manager.SMSService") as MockSMS:
             MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
             MockSettings.return_value.get_escalation_config.return_value = escalation_config
             MockSchedule.return_value.schedule_repo.get_by_date_range.return_value = []
+            MockMembers.return_value.get_digest_recipients.return_value = []
             MockSMS.return_value._compose_weekly_summary.return_value = "Weekly summary"
-            MockSMS.return_value.send_escalation_weekly_summary.return_value = sms_result
+            MockSMS.return_value.send_weekly_digest.return_value = sms_result
 
             result = send_weekly_escalation_summary()
 
         assert result["successful"] == 1
         assert "timestamp" in result
+
+    def test_member_only_digest_sends_without_escalation(self):
+        """WOF-10: the supervisor case — opted-in member, escalation disabled."""
+        mock_db = MagicMock()
+        supervisor = MagicMock()
+        supervisor.name = "Super Visor"
+        supervisor.phone = "+15554440001"
+        sms_result = {"successful": 1, "failed": 0, "total": 1}
+
+        with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.ScheduleService") as MockSchedule, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers, \
+             patch("src.scheduler.schedule_manager.SMSService") as MockSMS:
+            MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
+            MockSettings.return_value.get_escalation_config.return_value = {"enabled": False}
+            MockSchedule.return_value.schedule_repo.get_by_date_range.return_value = []
+            MockMembers.return_value.get_digest_recipients.return_value = [supervisor]
+            MockSMS.return_value._compose_weekly_summary.return_value = "Weekly summary"
+            MockSMS.return_value.send_weekly_digest.return_value = sms_result
+
+            result = send_weekly_escalation_summary()
+
+        assert result["successful"] == 1
+        # The member reached the send call as a recipient
+        sent_recipients = MockSMS.return_value.send_weekly_digest.call_args.kwargs.get(
+            "recipients"
+        ) or MockSMS.return_value.send_weekly_digest.call_args.args[1]
+        assert any(r["phone"] == "+15554440001" for r in sent_recipients)
+
+
+# ---------------------------------------------------------------------------
+# collect_weekly_digest_recipients (WOF-10) — real services, real DB
+# ---------------------------------------------------------------------------
+
+class TestCollectWeeklyDigestRecipients:
+    """Recipient selection across member opt-in × escalation flag combinations."""
+
+    def _add_member(self, db_session, name, phone, optin, active=True):
+        from src.repositories.team_member_repository import TeamMemberRepository
+        return TeamMemberRepository(db_session).create({
+            "name": name,
+            "phone": phone,
+            "is_active": active,
+            "weekly_digest_optin": optin,
+        })
+
+    def _set_escalation(self, db_session, **kwargs):
+        from src.services.settings_service import SettingsService
+        SettingsService(db_session).set_escalation_config(**kwargs)
+
+    def test_opted_in_member_included_without_escalation(self, db_session):
+        self._add_member(db_session, "Super Visor", "+15554440001", optin=True)
+        self._add_member(db_session, "Quiet Quinn", "+15554440002", optin=False)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        phones = [r["phone"] for r in recipients]
+        assert phones == ["+15554440001"]
+        assert recipients[0]["label"] == "Team Member Digest"
+
+    def test_inactive_opted_in_member_excluded(self, db_session):
+        self._add_member(db_session, "Gone Gary", "+15554440003", optin=True, active=False)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        assert recipients == []
+
+    def test_escalation_contact_respects_individual_flag(self, db_session):
+        self._set_escalation(
+            db_session,
+            enabled=True,
+            primary_name="New Engineer",
+            primary_phone="+15554440004",
+            secondary_name="Old Hand",
+            secondary_phone="+15554440005",
+            primary_weekly_digest=False,
+            secondary_weekly_digest=True,
+        )
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        phones = [r["phone"] for r in recipients]
+        assert phones == ["+15554440005"]
+        assert recipients[0]["label"] == "Secondary Escalation Contact"
+
+    def test_escalation_disabled_excludes_contacts_but_not_members(self, db_session):
+        self._set_escalation(
+            db_session,
+            enabled=False,
+            primary_name="New Engineer",
+            primary_phone="+15554440004",
+        )
+        self._add_member(db_session, "Super Visor", "+15554440001", optin=True)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        phones = [r["phone"] for r in recipients]
+        assert phones == ["+15554440001"]
+
+    def test_dedupes_member_who_is_also_escalation_contact(self, db_session):
+        self._set_escalation(
+            db_session,
+            enabled=True,
+            primary_name="Super Visor",
+            primary_phone="+15554440001",
+        )
+        self._add_member(db_session, "Super Visor", "+15554440001", optin=True)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        assert len(recipients) == 1
+        # Escalation listing wins the label (collected first)
+        assert recipients[0]["label"] == "Primary Escalation Contact"
 
 
 # ---------------------------------------------------------------------------

@@ -57,6 +57,31 @@ class TeamMemberRepository(BaseRepository[TeamMember]):
             self.db.rollback()
             raise Exception(f"Database error getting active team members: {str(e)}")
 
+    def get_digest_recipients(self) -> List[TeamMember]:
+        """
+        Get active team members opted into the Monday weekly digest (WOF-10).
+
+        Returns:
+            List of active TeamMember instances with weekly_digest_optin set,
+            ordered by name
+
+        Raises:
+            Exception: If database operation fails
+        """
+        try:
+            return (
+                self.db.query(self.model)
+                .filter(
+                    self.model.is_active.is_(True),
+                    self.model.weekly_digest_optin.is_(True)
+                )
+                .order_by(self.model.name)
+                .all()
+            )
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise Exception(f"Database error getting digest recipients: {str(e)}")
+
     def get_inactive(self) -> List[TeamMember]:
         """
         Get all inactive team members.

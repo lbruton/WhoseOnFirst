@@ -27,6 +27,10 @@ ESCALATION_PRIMARY_PHONE = "escalation_primary_phone"
 ESCALATION_SECONDARY_NAME = "escalation_secondary_name"
 ESCALATION_SECONDARY_PHONE = "escalation_secondary_phone"
 ESCALATION_WEEKLY_ENABLED = "escalation_weekly_enabled"
+# Per-contact weekly-digest opt-in flags (WOF-10). Default True so existing
+# escalation contacts keep receiving the Monday digest.
+ESCALATION_PRIMARY_WEEKLY_DIGEST = "escalation_primary_weekly_digest"
+ESCALATION_SECONDARY_WEEKLY_DIGEST = "escalation_secondary_weekly_digest"
 
 # Default SMS template
 DEFAULT_SMS_TEMPLATE = """WhoseOnFirst Alert
@@ -331,6 +335,9 @@ class SettingsService:
         - primary_phone: str | None
         - secondary_name: str | None
         - secondary_phone: str | None
+        - primary_weekly_digest: bool (default: True — preserves the
+          pre-WOF-10 behavior where every escalation contact got the digest)
+        - secondary_weekly_digest: bool (default: True)
 
         Returns:
             Escalation configuration dictionary
@@ -340,7 +347,13 @@ class SettingsService:
             "primary_name": self.repository.get_value(ESCALATION_PRIMARY_NAME, default=None),
             "primary_phone": self.repository.get_value(ESCALATION_PRIMARY_PHONE, default=None),
             "secondary_name": self.repository.get_value(ESCALATION_SECONDARY_NAME, default=None),
-            "secondary_phone": self.repository.get_value(ESCALATION_SECONDARY_PHONE, default=None)
+            "secondary_phone": self.repository.get_value(ESCALATION_SECONDARY_PHONE, default=None),
+            "primary_weekly_digest": self.repository.get_value(
+                ESCALATION_PRIMARY_WEEKLY_DIGEST, default=True
+            ),
+            "secondary_weekly_digest": self.repository.get_value(
+                ESCALATION_SECONDARY_WEEKLY_DIGEST, default=True
+            )
         }
 
     def set_escalation_config(
@@ -349,7 +362,9 @@ class SettingsService:
         primary_name: Optional[str] = None,
         primary_phone: Optional[str] = None,
         secondary_name: Optional[str] = None,
-        secondary_phone: Optional[str] = None
+        secondary_phone: Optional[str] = None,
+        primary_weekly_digest: Optional[bool] = None,
+        secondary_weekly_digest: Optional[bool] = None
     ) -> Dict[str, Settings]:
         """
         Set the escalation contact configuration.
@@ -360,6 +375,10 @@ class SettingsService:
             primary_phone: Primary escalation contact phone (E.164 format)
             secondary_name: Secondary escalation contact name
             secondary_phone: Secondary escalation contact phone (E.164 format)
+            primary_weekly_digest: Whether the primary contact receives the
+                Monday weekly digest (WOF-10; None = leave unchanged)
+            secondary_weekly_digest: Whether the secondary contact receives
+                the Monday weekly digest (WOF-10; None = leave unchanged)
 
         Returns:
             Dictionary of updated Settings instances
@@ -409,6 +428,23 @@ class SettingsService:
                 secondary_phone,
                 "text",
                 "Secondary escalation contact phone (E.164 format)"
+            )
+
+        # Per-contact weekly-digest opt-in flags (WOF-10)
+        if primary_weekly_digest is not None:
+            updated["primary_weekly_digest"] = self.set_setting(
+                ESCALATION_PRIMARY_WEEKLY_DIGEST,
+                primary_weekly_digest,
+                "bool",
+                "Primary escalation contact receives Monday weekly digest"
+            )
+
+        if secondary_weekly_digest is not None:
+            updated["secondary_weekly_digest"] = self.set_setting(
+                ESCALATION_SECONDARY_WEEKLY_DIGEST,
+                secondary_weekly_digest,
+                "bool",
+                "Secondary escalation contact receives Monday weekly digest"
             )
 
         return updated

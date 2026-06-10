@@ -866,6 +866,44 @@ class TestSendEscalationWeeklySummary:
         assert result["failed"] == 1
         assert result["successful"] == 0
 
+    def test_contact_with_digest_opted_out_is_skipped(self, sms_service_mock_mode):
+        """WOF-10: a per-contact digest opt-out excludes that contact."""
+        config = self._make_config(primary=True, secondary=True)
+        config["primary_weekly_digest"] = False  # supervisor's replacement opted out
+
+        result = sms_service_mock_mode.send_escalation_weekly_summary(
+            message="Weekly schedule summary",
+            escalation_config=config
+        )
+        assert result["total"] == 1
+        assert result["details"][0]["contact"] == "Secondary Escalation Contact"
+
+
+class TestSendWeeklyDigest:
+    """WOF-10: generalized digest send to an arbitrary recipient list."""
+
+    def test_sends_to_each_recipient(self, sms_service_mock_mode):
+        recipients = [
+            {"name": "Super Visor", "phone": "+15554440001", "label": "Team Member Digest"},
+            {"name": "New Engineer", "phone": "+15554440002", "label": "Primary Escalation Contact"},
+        ]
+        result = sms_service_mock_mode.send_weekly_digest(
+            message="Weekly schedule summary",
+            recipients=recipients
+        )
+        assert result["total"] == 2
+        assert result["successful"] == 2
+        labels = {d["contact"] for d in result["details"]}
+        assert labels == {"Team Member Digest", "Primary Escalation Contact"}
+
+    def test_empty_recipient_list_sends_nothing(self, sms_service_mock_mode):
+        result = sms_service_mock_mode.send_weekly_digest(
+            message="Weekly schedule summary",
+            recipients=[]
+        )
+        assert result["total"] == 0
+        assert result["successful"] == 0
+
 
 # ===========================================================================
 # WHO-43 — DB → env → mock precedence chain (TDD red phase)
