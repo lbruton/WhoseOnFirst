@@ -39,7 +39,7 @@ class TestRotationDayOrdering:
                            "duration_hours": 24, "start_time": "08:00:00"})
 
         service = RotationAlgorithmService(db_session)
-        start = chicago_tz.localize(datetime(2025, 11, 4, 8, 0))  # a Monday
+        start = chicago_tz.localize(datetime(2025, 11, 3, 8, 0))  # a Monday
         entries = service.generate_rotation(start, weeks=1)
 
         # Sort entries chronologically and read off the assigned members
@@ -71,7 +71,7 @@ class TestRotationDayOrdering:
                                "duration_hours": 24, "start_time": "08:00:00"})
 
         service = RotationAlgorithmService(db_session)
-        start = chicago_tz.localize(datetime(2025, 11, 4, 8, 0))  # a Monday
+        start = chicago_tz.localize(datetime(2025, 11, 3, 8, 0))  # a Monday
         entries = service.generate_rotation(start, weeks=1)
 
         by_day = sorted(entries, key=lambda e: e["start_datetime"])
@@ -95,7 +95,7 @@ class TestRotationDayOrdering:
                            "duration_hours": 24, "start_time": "08:00:00"})
 
         service = RotationAlgorithmService(db_session)
-        start = chicago_tz.localize(datetime(2025, 11, 4, 8, 0))  # a Monday
+        start = chicago_tz.localize(datetime(2025, 11, 3, 8, 0))  # a Monday
         entries = service.generate_rotation(start, weeks=1)
 
         by_day = sorted(entries, key=lambda e: e["start_datetime"])

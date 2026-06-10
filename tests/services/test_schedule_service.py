@@ -15,6 +15,7 @@ Test organization:
 
 import pytest
 from datetime import datetime, timedelta
+from freezegun import freeze_time
 from pytz import timezone
 
 from src.services.schedule_service import (
@@ -43,7 +44,7 @@ class TestScheduleServiceGeneration:
     ):
         """Test basic schedule generation for 4 weeks."""
         service = ScheduleService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         schedules = service.generate_schedule(start_date, weeks=4)
 
@@ -66,7 +67,7 @@ class TestScheduleServiceGeneration:
     ):
         """Test generating a single week schedule."""
         service = ScheduleService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         schedules = service.generate_schedule(start_date, weeks=1)
 
@@ -77,7 +78,7 @@ class TestScheduleServiceGeneration:
     ):
         """Test generating schedules for 8 weeks."""
         service = ScheduleService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         schedules = service.generate_schedule(start_date, weeks=8)
 
@@ -88,7 +89,7 @@ class TestScheduleServiceGeneration:
     ):
         """Test that schedules follow circular rotation pattern."""
         service = ScheduleService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         schedules = service.generate_schedule(start_date, weeks=2)
 
@@ -124,7 +125,7 @@ class TestScheduleServiceDuplicatePrevention:
     ):
         """Test that generating again for same period raises error."""
         service = ScheduleService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         # First generation succeeds
         service.generate_schedule(start_date, weeks=4)
@@ -141,19 +142,26 @@ class TestScheduleServiceDuplicatePrevention:
     ):
         """Test that force=True allows regeneration."""
         service = ScheduleService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         # First generation
         original_schedules = service.generate_schedule(start_date, weeks=2)
-        original_ids = {s.id for s in original_schedules}
 
-        # Force regeneration
+        # Change the team, then force regeneration — the new roster proves
+        # the schedules were actually rebuilt. (Row IDs are not a reliable
+        # proxy: SQLite reuses freed rowids after a full delete.)
+        member_repo = TeamMemberRepository(db_session)
+        new_member = member_repo.create({
+            "name": "Force Regen Member",
+            "phone": "+15556660000",
+            "is_active": True
+        })
         new_schedules = service.generate_schedule(start_date, weeks=2, force=True)
-        new_ids = {s.id for s in new_schedules}
 
-        # Should have created new schedules (different IDs)
-        assert original_ids != new_ids
+        assert new_member.id in {s.team_member_id for s in new_schedules}
         assert len(new_schedules) == len(original_schedules)
+        # No duplicates left behind by the delete + regenerate cycle
+        assert len(service.schedule_repo.get_all()) == len(new_schedules)
 
     def test_can_generate_non_overlapping_periods(
         self, db_session, populated_team_members, populated_shifts, chicago_tz
@@ -161,12 +169,12 @@ class TestScheduleServiceDuplicatePrevention:
         """Test that non-overlapping periods can both be generated."""
         service = ScheduleService(db_session)
 
-        # Generate Nov 4-30
-        nov_start = chicago_tz.localize(datetime(2025, 11, 4))
+        # Generate Nov 3-30
+        nov_start = chicago_tz.localize(datetime(2025, 11, 3))
         nov_schedules = service.generate_schedule(nov_start, weeks=4)
 
-        # Generate Dec 2-29 (non-overlapping)
-        dec_start = chicago_tz.localize(datetime(2025, 12, 2))
+        # Generate Dec 1-28 (non-overlapping)
+        dec_start = chicago_tz.localize(datetime(2025, 12, 1))
         dec_schedules = service.generate_schedule(dec_start, weeks=4)
 
         # Both should succeed
@@ -226,12 +234,13 @@ class TestScheduleServiceQueries:
         service = ScheduleService(db_session)
 
         # Generate schedules
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
         service.generate_schedule(start, weeks=4)
 
-        # Query specific range
-        range_start = chicago_tz.localize(datetime(2025, 11, 4))
-        range_end = chicago_tz.localize(datetime(2025, 11, 18))
+        # Query exactly 2 weeks of shift starts: Mon Nov 3 through end of day
+        # Sun Nov 16 (the repository filters on start_datetime only)
+        range_start = chicago_tz.localize(datetime(2025, 11, 3))
+        range_end = chicago_tz.localize(datetime(2025, 11, 16, 23, 59, 59))
 
         schedules = service.get_schedule_by_date_range(range_start, range_end)
 
@@ -265,7 +274,7 @@ class TestScheduleServiceQueries:
         service = ScheduleService(db_session)
 
         # Generate schedules
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
         all_schedules = service.generate_schedule(start, weeks=4)
 
         # Get schedules for first member
@@ -311,11 +320,11 @@ class TestScheduleServiceRegeneration:
         service = ScheduleService(db_session)
 
         # Generate initial schedules
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
         original = service.generate_schedule(start, weeks=4)
 
         # Regenerate from 2 weeks in
-        regen_date = chicago_tz.localize(datetime(2025, 11, 18))
+        regen_date = chicago_tz.localize(datetime(2025, 11, 17))
         new_schedules = service.regenerate_from_date(regen_date, weeks=4)
 
         # Should have new schedules
@@ -335,7 +344,7 @@ class TestScheduleServiceRegeneration:
         service = ScheduleService(db_session)
 
         # Generate initial schedules
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
         service.generate_schedule(start, weeks=4)
 
         # Add a new team member
@@ -359,18 +368,18 @@ class TestScheduleServiceRegeneration:
         """Test that regeneration doesn't delete historical schedules."""
         service = ScheduleService(db_session)
 
-        # Generate schedules from Nov 4
-        nov_4 = chicago_tz.localize(datetime(2025, 11, 4))
-        service.generate_schedule(nov_4, weeks=4)
+        # Generate schedules from Monday Nov 3
+        nov_3 = chicago_tz.localize(datetime(2025, 11, 3))
+        service.generate_schedule(nov_3, weeks=4)
 
-        # Regenerate from Nov 18 (2 weeks later)
-        nov_18 = chicago_tz.localize(datetime(2025, 11, 18))
-        service.regenerate_from_date(nov_18, weeks=4)
+        # Regenerate from Monday Nov 17 (2 weeks later)
+        nov_17 = chicago_tz.localize(datetime(2025, 11, 17))
+        service.regenerate_from_date(nov_17, weeks=4)
 
-        # Schedules from Nov 4-17 should still exist
+        # Schedules from Nov 3-16 should still exist
         historical = service.get_schedule_by_date_range(
-            nov_4,
-            nov_18 - timedelta(days=1)
+            nov_3,
+            nov_17 - timedelta(days=1)
         )
 
         assert len(historical) > 0  # Historical schedules preserved
@@ -400,7 +409,7 @@ class TestScheduleServiceErrors:
     ):
         """Test that generating with no active members raises error."""
         service = ScheduleService(db_session)
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
 
         # No team members in database
         with pytest.raises(InsufficientMembersError):
@@ -411,7 +420,7 @@ class TestScheduleServiceErrors:
     ):
         """Test that generating with no shifts raises error."""
         service = ScheduleService(db_session)
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
 
         # No shifts in database
         with pytest.raises(NoShiftsConfiguredError):
@@ -423,7 +432,7 @@ class TestScheduleServiceErrors:
         """Test that end_date < start_date raises InvalidDateRangeError."""
         service = ScheduleService(db_session)
 
-        start = chicago_tz.localize(datetime(2025, 11, 18))
+        start = chicago_tz.localize(datetime(2025, 11, 17))
         end = chicago_tz.localize(datetime(2025, 11, 4))  # Before start
 
         with pytest.raises(InvalidDateRangeError) as exc_info:
@@ -495,7 +504,7 @@ class TestScheduleServiceNotifications:
         service = ScheduleService(db_session)
 
         # Generate schedules
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
         schedules = service.generate_schedule(start, weeks=1)
 
         # Mark first schedule as notified
@@ -548,7 +557,7 @@ class TestScheduleServiceIntegration:
         service = ScheduleService(db_session)
 
         # Step 1: Generate initial schedule
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
         initial = service.generate_schedule(start, weeks=4)
 
         assert len(initial) == 24
@@ -565,7 +574,7 @@ class TestScheduleServiceIntegration:
             "is_active": True
         })
 
-        regen_date = chicago_tz.localize(datetime(2025, 11, 18))
+        regen_date = chicago_tz.localize(datetime(2025, 11, 17))
         regenerated = service.regenerate_from_date(regen_date, weeks=4)
 
         # Verify new member appears in regenerated schedules
@@ -607,7 +616,7 @@ class TestScheduleServiceIntegration:
         member_repo = TeamMemberRepository(db_session)
 
         # Initial generation with 4 active members
-        start = chicago_tz.localize(datetime(2025, 11, 4))
+        start = chicago_tz.localize(datetime(2025, 11, 3))
         initial = service.generate_schedule(start, weeks=2)
 
         initial_member_ids = {s.team_member_id for s in initial}
@@ -647,3 +656,128 @@ class TestScheduleServicePendingWithTargetDate:
         target = datetime.now(chicago_tz)
         pending = service.get_pending_notifications(target_date=target)
         assert isinstance(pending, list)
+
+
+# ============================================================================
+# Test Class: Start-Date Anchoring + Generation Warnings (WOF-9)
+# ============================================================================
+
+class TestGenerationAnchoringAndWarnings:
+    """Tests for anchored generation and the warnings surfaced to callers.
+
+    Generation must never create entries before the requested start date,
+    and the service must report (not block on) two conditions:
+    1. start == today after the 8:00 AM America/Chicago notification window
+       (today's on-call will not receive an SMS until triggered manually);
+    2. the start date is uncovered because it falls mid-way through a
+       multi-day shift that was skipped rather than truncated.
+
+    Frozen times are UTC: 2025-11-04 is CST (UTC-6), so 15:00Z = 09:00 CST
+    and 12:00Z = 06:00 CST.
+    """
+
+    def test_generate_midweek_creates_no_past_entries(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Generation never persists entries dated before the start date."""
+        service = ScheduleService(db_session)
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+
+        schedules = service.generate_schedule(tuesday, weeks=2)
+
+        assert all(
+            s.start_datetime.date() >= datetime(2025, 11, 4).date()
+            for s in schedules
+        )
+
+    def test_force_regenerate_midweek_preserves_prior_week_days(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Force-regenerating mid-week leaves earlier days of the week intact.
+
+        delete_future_schedules removes rows >= from_date; generation must not
+        re-create the week's earlier days, or those days end up duplicated.
+        """
+        service = ScheduleService(db_session)
+        monday = chicago_tz.localize(datetime(2025, 11, 3))
+        service.generate_schedule(monday, weeks=2)
+
+        wednesday = chicago_tz.localize(datetime(2025, 11, 5))
+        service.generate_schedule(wednesday, weeks=2, force=True)
+
+        all_schedules = service.schedule_repo.get_all()
+        monday_rows = [
+            s for s in all_schedules
+            if s.start_datetime.date() == datetime(2025, 11, 3).date()
+        ]
+        tuesday_rows = [
+            s for s in all_schedules
+            if s.start_datetime.date() == datetime(2025, 11, 4).date()
+        ]
+        assert len(monday_rows) == 1
+        assert len(tuesday_rows) == 1
+
+    def test_existing_check_covers_extended_horizon(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """The duplicate check sees entries in the trailing extra week."""
+        service = ScheduleService(db_session)
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+        # Mid-week start with weeks=1 covers through Sunday Nov 16
+        service.generate_schedule(tuesday, weeks=1)
+
+        next_monday = chicago_tz.localize(datetime(2025, 11, 10))
+        with pytest.raises(ScheduleAlreadyExistsError):
+            service.generate_schedule(next_monday, weeks=1)
+
+    @freeze_time("2025-11-04 15:00:00")  # 09:00 CST — after the 8 AM job
+    def test_warning_when_start_today_after_8am(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Starting today after 8 AM CT warns that today's SMS was missed."""
+        service = ScheduleService(db_session)
+        today = chicago_tz.localize(datetime(2025, 11, 4, 8, 0))
+
+        schedules = service.generate_schedule(today, weeks=1)
+        warnings = service.get_generation_warnings(today, schedules)
+
+        assert any("notification" in w.lower() for w in warnings)
+
+    @freeze_time("2025-11-04 12:00:00")  # 06:00 CST — before the 8 AM job
+    def test_no_warning_when_start_today_before_8am(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Starting today before 8 AM CT produces no missed-SMS warning."""
+        service = ScheduleService(db_session)
+        today = chicago_tz.localize(datetime(2025, 11, 4, 8, 0))
+
+        schedules = service.generate_schedule(today, weeks=1)
+        warnings = service.get_generation_warnings(today, schedules)
+
+        assert warnings == []
+
+    @freeze_time("2025-11-04 15:00:00")
+    def test_no_warning_for_future_start(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """A future Monday start produces no warnings at all."""
+        service = ScheduleService(db_session)
+        next_monday = chicago_tz.localize(datetime(2025, 11, 10))
+
+        schedules = service.generate_schedule(next_monday, weeks=1)
+        warnings = service.get_generation_warnings(next_monday, schedules)
+
+        assert warnings == []
+
+    @freeze_time("2025-11-01 12:00:00")  # well before the start date
+    def test_warning_when_start_date_uncovered_by_double_shift(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """A start date inside a skipped 48h shift surfaces a coverage warning."""
+        service = ScheduleService(db_session)
+        wednesday = chicago_tz.localize(datetime(2025, 11, 5))
+
+        schedules = service.generate_schedule(wednesday, weeks=1)
+        warnings = service.get_generation_warnings(wednesday, schedules)
+
+        assert any("no shift covers" in w.lower() for w in warnings)

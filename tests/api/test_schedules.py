@@ -4,6 +4,7 @@ Schedules API endpoint tests.
 
 import pytest
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from pytz import timezone
@@ -242,7 +243,7 @@ class TestGenerateSchedule:
         )
 
         assert response.status_code == 201
-        data = response.json()
+        data = response.json()["schedules"]
         assert len(data) > 0
         # With 3 members and 6 shifts per week, over 4 weeks = 24 assignments
         assert len(data) == 24
@@ -292,7 +293,7 @@ class TestGenerateSchedule:
             }
         )
         assert response.status_code == 201
-        first_schedule_count = len(response.json())
+        first_schedule_count = len(response.json()["schedules"])
 
         # Force regenerate
         response = client.post(
@@ -304,7 +305,7 @@ class TestGenerateSchedule:
             }
         )
         assert response.status_code == 201
-        second_schedule_count = len(response.json())
+        second_schedule_count = len(response.json()["schedules"])
         # Should have same count
         assert second_schedule_count == first_schedule_count
 
@@ -349,6 +350,75 @@ class TestGenerateSchedule:
         )
         assert response.status_code == 400
         assert "no shifts configured" in response.json()["detail"].lower()
+
+
+class TestGenerateScheduleEnvelope:
+    """Tests for the WOF-9 response envelope and anchored generation."""
+
+    def test_generate_returns_envelope_with_schedules_and_warnings(
+        self, client: TestClient, setup_team_and_shifts
+    ):
+        """POST /generate returns {schedules: [...], warnings: [...]}."""
+        start_date = CHICAGO_TZ.localize(datetime(2025, 1, 6, 8, 0, 0))  # Monday
+
+        response = client.post(
+            "/api/v1/schedules/generate",
+            json={
+                "start_date": start_date.isoformat(),
+                "weeks": 2,
+                "force": False
+            }
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert set(data.keys()) == {"schedules", "warnings"}
+        assert len(data["schedules"]) == 12  # 6 shifts * 2 weeks
+        assert data["warnings"] == []  # past Monday start: nothing to warn about
+
+    def test_generate_today_after_8am_includes_missed_notification_warning(
+        self, client: TestClient, setup_team_and_shifts
+    ):
+        """Starting today after 8 AM CT returns the missed-SMS warning."""
+        # 15:00 UTC = 09:00 CST on Tuesday 2025-01-07
+        with freeze_time("2025-01-07 15:00:00"):
+            response = client.post(
+                "/api/v1/schedules/generate",
+                json={
+                    "start_date": "2025-01-07T08:00:00-06:00",
+                    "weeks": 1,
+                    "force": False
+                }
+            )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert any("notification" in w.lower() for w in data["warnings"])
+        # Anchored: the earliest entry is today, not Monday of the week
+        earliest = min(s["start_datetime"] for s in data["schedules"])
+        assert earliest.startswith("2025-01-07")
+
+    def test_generate_midweek_first_member_on_start_date(
+        self, client: TestClient, setup_team_and_shifts
+    ):
+        """End-to-end: member 1 is assigned the chosen mid-week start date."""
+        members = setup_team_and_shifts["members"]
+        start_date = CHICAGO_TZ.localize(datetime(2025, 1, 7, 8, 0, 0))  # Tuesday
+
+        response = client.post(
+            "/api/v1/schedules/generate",
+            json={
+                "start_date": start_date.isoformat(),
+                "weeks": 2,
+                "force": False
+            }
+        )
+
+        assert response.status_code == 201
+        schedules = response.json()["schedules"]
+        first = min(schedules, key=lambda s: s["start_datetime"])
+        assert first["start_datetime"].startswith("2025-01-07")
+        assert first["team_member_id"] == members[0].id
 
 
 class TestRegenerateSchedule:
@@ -435,7 +505,7 @@ class TestScheduleIntegration:
             }
         )
         assert response.status_code == 201
-        initial_count = len(response.json())
+        initial_count = len(response.json()["schedules"])
 
         # Query current week
         response = client.get("/api/v1/schedules/current")

@@ -22,7 +22,7 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from pytz import timezone
 
 from src.models.database import SessionLocal
-from src.services.schedule_service import ScheduleService
+from src.services.schedule_service import ScheduleService, DAILY_NOTIFICATION_HOUR
 from src.services.sms_service import SMSService
 from src.services.settings_service import SettingsService
 from src.services.schedule_override_service import ScheduleOverrideService
@@ -83,12 +83,18 @@ class ScheduleManager:
         """
         self.scheduler.add_job(
             func=send_daily_notifications,
-            trigger=CronTrigger(hour=8, minute=0, timezone=CHICAGO_TZ),
+            trigger=CronTrigger(
+                hour=DAILY_NOTIFICATION_HOUR, minute=0, timezone=CHICAGO_TZ
+            ),
             id='daily_oncall_notifications',
             name='Daily On-Call SMS Notifications',
             replace_existing=True
         )
-        logger.info("Added daily notification job: 8:00 AM %s", CHICAGO_TZ)
+        logger.info(
+            "Added daily notification job: %d:00 AM %s",
+            DAILY_NOTIFICATION_HOUR,
+            CHICAGO_TZ
+        )
 
     def add_auto_renewal_job(self) -> None:
         """

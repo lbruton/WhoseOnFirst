@@ -90,9 +90,15 @@ class RotationAlgorithmService:
         shifts in a circular pattern. Each week, every member moves to the next
         shift in sequence (or is off duty if there are more members than shifts).
 
+        The rotation is anchored at start_date (WOF-9): the first member in
+        rotation order takes the first shift on or after that date, and no
+        entries are created for earlier days of the week. A mid-week start
+        produces a partial week 0 plus one extra trailing week, so coverage
+        from start_date is always at least `weeks` full weeks.
+
         Args:
             start_date: Start date for the rotation (timezone-aware).
-                       Will be normalized to the Monday of that week.
+                       The first generated shift falls on or after this date.
             weeks: Number of weeks to generate (minimum 1, default 4)
             active_members_only: If True, only include active team members
 
@@ -109,10 +115,12 @@ class RotationAlgorithmService:
 
         Example:
             >>> service = RotationAlgorithmService(db)
-            >>> start = chicago_tz.localize(datetime(2025, 11, 4))
-            >>> entries = service.generate_rotation(start, weeks=4)
-            >>> len(entries)  # 7 members * 6 shifts * 4 weeks
-            168
+            >>> monday = chicago_tz.localize(datetime(2025, 11, 3))
+            >>> len(service.generate_rotation(monday, weeks=4))  # 6 shifts/week
+            24
+            >>> tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+            >>> len(service.generate_rotation(tuesday, weeks=4))  # 5 partial + 24
+            29
         """
         # Validate inputs
         self._validate_inputs(start_date, weeks)
@@ -139,18 +147,33 @@ class RotationAlgorithmService:
         # Normalize start_date to Monday of that week
         monday = self._get_week_start(start_date)
 
+        # Anchor at start_date (WOF-9): week 0 only covers shifts on/after the
+        # start day, and a mid-week start adds one trailing week so coverage
+        # from start_date is never less than the requested number of weeks.
+        start_day_offset = start_date.weekday()
+        extra_weeks = 1 if start_day_offset > 0 else 0
+
         # Generate schedule entries
         schedule_entries = []
+        assignment_count = 0
 
-        for week in range(weeks):
+        for week in range(weeks + extra_weeks):
             # Assign members to shifts for this week
-            for shift_index, shift in enumerate(shifts):
-                # Circular rotation: continuously cycle through all team members
-                # Calculate total shifts elapsed (week * shifts_per_week + current_shift)
-                # This ensures all members rotate through regardless of team size vs. shifts
-                shifts_elapsed = (week * len(shifts)) + shift_index
-                member_index = shifts_elapsed % len(members)
-                member = members[member_index]
+            for shift in shifts:
+                # Week 0 skips shifts whose first day precedes the start date.
+                # A multi-day shift straddling the start (e.g. starting on the
+                # Wednesday of a Tuesday-Wednesday 48h shift) is skipped whole,
+                # never truncated — the caller surfaces that as a warning.
+                first_day_offset = self.DAY_OFFSET_MAP[shift.day_of_week.split('-')[0]]
+                if week == 0 and first_day_offset < start_day_offset:
+                    continue
+
+                # Circular rotation over emitted entries: the first member in
+                # rotation order takes the first generated shift (the start
+                # date), and the cycle continues uninterrupted across weeks
+                # regardless of team size vs. shift count.
+                member = members[assignment_count % len(members)]
+                assignment_count += 1
 
                 # Calculate shift start datetime
                 shift_start_datetime = self._calculate_shift_start(
@@ -178,6 +201,28 @@ class RotationAlgorithmService:
                 schedule_entries.append(entry)
 
         return schedule_entries
+
+    def get_rotation_horizon_end(self, start_date: datetime, weeks: int) -> datetime:
+        """
+        Return the exclusive end of the period generate_rotation will cover.
+
+        A mid-week start adds one trailing week to the rotation (so coverage
+        from start_date is at least `weeks` full weeks), which means the
+        covered period can extend past start_date + weeks. Callers that check
+        for existing schedules in the generation window must use this horizon,
+        not a naive start_date + weeks, or entries in the trailing week escape
+        the duplicate check.
+
+        Args:
+            start_date: Rotation start date (timezone-aware)
+            weeks: Requested number of weeks
+
+        Returns:
+            Timezone-aware datetime of the Monday following the last
+            generated week (exclusive end of the covered period)
+        """
+        extra_weeks = 1 if start_date.weekday() > 0 else 0
+        return self._get_week_start(start_date) + timedelta(weeks=weeks + extra_weeks)
 
     def _order_shifts_by_day(self, shifts: List) -> List:
         """
