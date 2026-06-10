@@ -8,6 +8,11 @@ version: 2
 updates:
   - package-ecosystem: "pip"
     directory: "/"
+    # CAVEAT: Dependabot SECURITY updates do not honor target-branch and may
+    # still open PRs against the default branch (main). That cannot auto-deploy
+    # here — main is protected (PR + review required, no direct pushes) — but
+    # any Dependabot PR based on main must be closed and re-landed via dev,
+    # never merged where it sits (again, see PR #40).
     target-branch: "dev"
     schedule:
       interval: "weekly"
