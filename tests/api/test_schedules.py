@@ -8,6 +8,7 @@ from freezegun import freeze_time
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from pytz import timezone
+from unittest.mock import patch
 
 from src.models.team_member import TeamMember
 from src.models.shift import Shift
@@ -540,8 +541,6 @@ class TestTriggerEndpointsErrorSanitization:
 
     def test_trigger_notifications_error_hides_exception_detail(self, client: TestClient):
         """A failing notification job must return a generic message, not str(e)."""
-        from unittest.mock import patch
-
         with patch(
             "src.scheduler.schedule_manager.send_daily_notifications"
         ) as mock_send:
@@ -556,8 +555,6 @@ class TestTriggerEndpointsErrorSanitization:
 
     def test_trigger_weekly_summary_error_hides_exception_detail(self, client: TestClient):
         """A failing weekly summary job must return a generic message, not str(e)."""
-        from unittest.mock import patch
-
         with patch(
             "src.scheduler.schedule_manager.send_weekly_escalation_summary"
         ) as mock_send:
