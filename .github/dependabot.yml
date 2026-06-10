@@ -1,0 +1,22 @@
+# Dependabot configuration
+#
+# target-branch is dev on purpose: all changes flow feature -> dev -> main,
+# and main auto-deploys to production via Portainer GitOps. Without this,
+# Dependabot targets the default branch (main) and a merged dep bump would
+# deploy straight to prod, bypassing dev CI and review (see closed PR #40).
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    # CAVEAT: Dependabot SECURITY updates do not honor target-branch and may
+    # still open PRs against the default branch (main). That cannot auto-deploy
+    # here — main is protected (PR + review required, no direct pushes) — but
+    # any Dependabot PR based on main must be closed and re-landed via dev,
+    # never merged where it sits (again, see PR #40).
+    target-branch: "dev"
+    schedule:
+      interval: "weekly"
+    groups:
+      pip:
+        patterns:
+          - "*"

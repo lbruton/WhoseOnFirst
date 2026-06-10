@@ -12,7 +12,9 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from src.models.database import get_db
+# Use the shared API dependency (like the other route modules) so test
+# fixtures that override src.api.dependencies.get_db cover these routes too
+from src.api.dependencies import get_db
 from src.api.routes.auth import require_admin
 from src.services.export_service import ExportService
 from src.services.import_service import ImportService, ImportValidationError
