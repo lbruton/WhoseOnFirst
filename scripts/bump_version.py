@@ -67,10 +67,18 @@ def print_error(text: str):
 
 
 def get_current_version(version_file: Path) -> str:
-    """Read the current version from the canonical VERSION file."""
-    if version_file.exists():
-        return version_file.read_text().strip()
-    return "unknown"
+    """Read and validate the current version from the canonical VERSION file.
+
+    Fails fast rather than returning a sentinel — a missing/empty/malformed
+    VERSION would otherwise drive a global string replacement (e.g. replacing
+    "" or "unknown" across every file), corrupting the tree.
+    """
+    if not version_file.exists():
+        raise FileNotFoundError(f"Missing VERSION file: {version_file}")
+    current = version_file.read_text().strip()
+    if not re.match(r'^\d+\.\d+\.\d+$', current):
+        raise ValueError(f"VERSION file is empty or malformed: {current!r}")
+    return current
 
 
 def update_file(file_path: Path, old_version: str, new_version: str) -> Tuple[bool, int]:
@@ -196,7 +204,11 @@ def main():
     # src/main.py now derives its version from VERSION at runtime (WOF-14), so the
     # only literals left to rewrite are VERSION itself and the docs.
     version_file = root / "VERSION"
-    old_version = get_current_version(version_file)
+    try:
+        old_version = get_current_version(version_file)
+    except (FileNotFoundError, ValueError) as exc:
+        print_error(str(exc))
+        sys.exit(1)
 
     print_header(f"WhoseOnFirst Version Bump: {old_version} → {new_version}")
 

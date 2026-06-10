@@ -34,12 +34,16 @@ class TestVersionEndpoint:
         monkeypatch.setattr(
             version_module, "_VERSION_FILE", Path("/nonexistent/VERSION")
         )
+        # get_app_version is lru_cached; bust the cache around the patched read
+        version_module.get_app_version.cache_clear()
+        try:
+            response = client.get("/api/v1/version")
 
-        response = client.get("/api/v1/version")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["version"] == "unknown"
+            assert response.status_code == 200
+            data = response.json()
+            assert data["version"] == "unknown"
+        finally:
+            version_module.get_app_version.cache_clear()
 
 
 class TestVersionConsistency:
