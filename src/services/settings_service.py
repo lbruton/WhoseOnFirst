@@ -4,11 +4,16 @@ Settings service for business logic.
 Manages application settings with type-safe accessors.
 """
 
+import logging
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
+from cryptography.fernet import InvalidToken
 
 from ..repositories.settings_repository import SettingsRepository
 from ..models.settings import Settings
+from .secrets_service import SecretsService, SecretsConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 # Setting key constants
@@ -22,6 +27,10 @@ ESCALATION_PRIMARY_PHONE = "escalation_primary_phone"
 ESCALATION_SECONDARY_NAME = "escalation_secondary_name"
 ESCALATION_SECONDARY_PHONE = "escalation_secondary_phone"
 ESCALATION_WEEKLY_ENABLED = "escalation_weekly_enabled"
+# Per-contact weekly-digest opt-in flags (WOF-10). Default True so existing
+# escalation contacts keep receiving the Monday digest.
+ESCALATION_PRIMARY_WEEKLY_DIGEST = "escalation_primary_weekly_digest"
+ESCALATION_SECONDARY_WEEKLY_DIGEST = "escalation_secondary_weekly_digest"
 
 # Default SMS template
 DEFAULT_SMS_TEMPLATE = """WhoseOnFirst Alert
@@ -57,13 +66,40 @@ class SettingsService:
         """
         Get a setting by key.
 
+        For rows with ``value_type == "encrypted"``, the stored ciphertext
+        is transparently decrypted in memory before returning. The DB row
+        is NOT modified — only the in-memory ``value`` attribute is replaced
+        with the plaintext. If decryption fails (``InvalidToken`` or missing
+        ``SECRET_KEY``), this returns ``None`` and logs a warning so callers
+        can fall through to env-var fallback or mock mode.
+
         Args:
             key: Setting key
 
         Returns:
             Settings instance or None
         """
-        return self.repository.get_by_key(key)
+        setting = self.repository.get_by_key(key)
+        if setting is None:
+            return None
+        if setting.value_type == "encrypted":
+            try:
+                plaintext = SecretsService().decrypt(setting.value)
+            except (InvalidToken, SecretsConfigurationError):
+                logger.warning(
+                    "Failed to decrypt setting key=%s — possibly SECRET_KEY rotation or DB corruption",
+                    key,
+                )
+                return None
+            # Detach from session BEFORE mutating .value so SQLAlchemy's
+            # dirty-tracking does not flag this row for write-back. If we
+            # mutated a session-bound entity, a downstream commit() in this
+            # request lifecycle (autoflush, explicit commit, or session
+            # teardown) would persist the plaintext over the ciphertext —
+            # the exact regression CodeRabbit flagged.
+            self.db.expunge(setting)
+            setting.value = plaintext
+        return setting
 
     def get_all_settings(self) -> Dict[str, Any]:
         """
@@ -82,6 +118,11 @@ class SettingsService:
         """
         Set a setting value.
 
+        For ``value_type == "encrypted"``, the value is transparently
+        encrypted via :class:`SecretsService` before being persisted. The
+        ciphertext is stored in the ``value`` column and ``"encrypted"``
+        in the ``value_type`` column.
+
         Args:
             key: Setting key
             value: Setting value (will be converted to string)
@@ -91,6 +132,11 @@ class SettingsService:
         Returns:
             Settings instance
         """
+        # Encrypted secrets bypass type-detection entirely — caller opts in.
+        if value_type == "encrypted":
+            ciphertext = SecretsService().encrypt(str(value))
+            return self.repository.set_value(key, ciphertext, "encrypted", description)
+
         # Auto-detect type if not provided
         if value_type is None:
             if isinstance(value, bool):
@@ -289,6 +335,9 @@ class SettingsService:
         - primary_phone: str | None
         - secondary_name: str | None
         - secondary_phone: str | None
+        - primary_weekly_digest: bool (default: True — preserves the
+          pre-WOF-10 behavior where every escalation contact got the digest)
+        - secondary_weekly_digest: bool (default: True)
 
         Returns:
             Escalation configuration dictionary
@@ -298,7 +347,13 @@ class SettingsService:
             "primary_name": self.repository.get_value(ESCALATION_PRIMARY_NAME, default=None),
             "primary_phone": self.repository.get_value(ESCALATION_PRIMARY_PHONE, default=None),
             "secondary_name": self.repository.get_value(ESCALATION_SECONDARY_NAME, default=None),
-            "secondary_phone": self.repository.get_value(ESCALATION_SECONDARY_PHONE, default=None)
+            "secondary_phone": self.repository.get_value(ESCALATION_SECONDARY_PHONE, default=None),
+            "primary_weekly_digest": self.repository.get_value(
+                ESCALATION_PRIMARY_WEEKLY_DIGEST, default=True
+            ),
+            "secondary_weekly_digest": self.repository.get_value(
+                ESCALATION_SECONDARY_WEEKLY_DIGEST, default=True
+            )
         }
 
     def set_escalation_config(
@@ -307,7 +362,9 @@ class SettingsService:
         primary_name: Optional[str] = None,
         primary_phone: Optional[str] = None,
         secondary_name: Optional[str] = None,
-        secondary_phone: Optional[str] = None
+        secondary_phone: Optional[str] = None,
+        primary_weekly_digest: Optional[bool] = None,
+        secondary_weekly_digest: Optional[bool] = None
     ) -> Dict[str, Settings]:
         """
         Set the escalation contact configuration.
@@ -318,6 +375,10 @@ class SettingsService:
             primary_phone: Primary escalation contact phone (E.164 format)
             secondary_name: Secondary escalation contact name
             secondary_phone: Secondary escalation contact phone (E.164 format)
+            primary_weekly_digest: Whether the primary contact receives the
+                Monday weekly digest (WOF-10; None = leave unchanged)
+            secondary_weekly_digest: Whether the secondary contact receives
+                the Monday weekly digest (WOF-10; None = leave unchanged)
 
         Returns:
             Dictionary of updated Settings instances
@@ -367,6 +428,23 @@ class SettingsService:
                 secondary_phone,
                 "text",
                 "Secondary escalation contact phone (E.164 format)"
+            )
+
+        # Per-contact weekly-digest opt-in flags (WOF-10)
+        if primary_weekly_digest is not None:
+            updated["primary_weekly_digest"] = self.set_setting(
+                ESCALATION_PRIMARY_WEEKLY_DIGEST,
+                primary_weekly_digest,
+                "bool",
+                "Primary escalation contact receives Monday weekly digest"
+            )
+
+        if secondary_weekly_digest is not None:
+            updated["secondary_weekly_digest"] = self.set_setting(
+                ESCALATION_SECONDARY_WEEKLY_DIGEST,
+                secondary_weekly_digest,
+                "bool",
+                "Secondary escalation contact receives Monday weekly digest"
             )
 
         return updated

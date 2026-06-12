@@ -22,7 +22,8 @@ from apscheduler.jobstores.memory import MemoryJobStore
 from pytz import timezone
 
 from src.models.database import SessionLocal
-from src.services.schedule_service import ScheduleService
+from src.repositories.team_member_repository import TeamMemberRepository
+from src.services.schedule_service import ScheduleService, DAILY_NOTIFICATION_HOUR
 from src.services.sms_service import SMSService
 from src.services.settings_service import SettingsService
 from src.services.schedule_override_service import ScheduleOverrideService
@@ -83,12 +84,18 @@ class ScheduleManager:
         """
         self.scheduler.add_job(
             func=send_daily_notifications,
-            trigger=CronTrigger(hour=8, minute=0, timezone=CHICAGO_TZ),
+            trigger=CronTrigger(
+                hour=DAILY_NOTIFICATION_HOUR, minute=0, timezone=CHICAGO_TZ
+            ),
             id='daily_oncall_notifications',
             name='Daily On-Call SMS Notifications',
             replace_existing=True
         )
-        logger.info("Added daily notification job: 8:00 AM %s", CHICAGO_TZ)
+        logger.info(
+            "Added daily notification job: %d:00 AM %s",
+            DAILY_NOTIFICATION_HOUR,
+            CHICAGO_TZ
+        )
 
     def add_auto_renewal_job(self) -> None:
         """
@@ -375,10 +382,10 @@ def trigger_notifications_manually(force: bool = False) -> dict:
             'total': result['total']
         }
     except Exception as e:
-        logger.error("Manual notification trigger failed: %s", str(e))
+        logger.error("Manual notification trigger failed: %s", str(e), exc_info=True)
         return {
             'status': 'error',
-            'message': str(e),
+            'message': 'Daily notification job failed - see server logs',
             'timestamp': datetime.now(CHICAGO_TZ).isoformat(),
             'successful': 0,
             'failed': 0,
@@ -456,10 +463,17 @@ def check_auto_renewal() -> None:
                     threshold_weeks
                 )
 
-                # Generate new schedules starting from furthest date
+                # Generate new schedules starting from furthest date.
+                # The DB stores naive Chicago wall time; generate_schedule
+                # rejects naive datetimes, so localize first (WOF-15).
+                renewal_start = (
+                    furthest_date
+                    if furthest_date.tzinfo is not None
+                    else CHICAGO_TZ.localize(furthest_date, is_dst=False)
+                )
                 try:
                     new_schedules = schedule_service.generate_schedule(
-                        start_date=furthest_date,
+                        start_date=renewal_start,
                         weeks=renew_weeks,
                         force=False  # Don't overwrite existing
                     )
@@ -490,21 +504,74 @@ def check_auto_renewal() -> None:
             raise
 
 
+def collect_weekly_digest_recipients(db) -> list:
+    """
+    Build the Monday weekly-digest recipient list (WOF-10).
+
+    Recipients are the union of:
+    1. Escalation contacts (when escalation display is enabled) whose
+       per-contact ``*_weekly_digest`` flag is on — flags default True so
+       pre-WOF-10 escalation contacts keep receiving the digest.
+    2. Active team members with ``weekly_digest_optin`` set — independent
+       of escalation status, so e.g. a supervisor pushed out of the
+       escalation pair can still opt in.
+
+    Duplicates are removed by phone number; the escalation listing wins the
+    label because it is collected first.
+
+    Args:
+        db: SQLAlchemy database session
+
+    Returns:
+        List of recipient dicts: {"name": str, "phone": str, "label": str}
+    """
+    settings_service = SettingsService(db)
+    escalation_config = settings_service.get_escalation_config()
+
+    recipients = []
+    seen_phones = set()
+
+    if escalation_config.get('enabled'):
+        contact_slots = (
+            ("primary", "Primary Escalation Contact"),
+            ("secondary", "Secondary Escalation Contact"),
+        )
+        for slot, label in contact_slots:
+            name = escalation_config.get(f'{slot}_name')
+            phone = escalation_config.get(f'{slot}_phone')
+            # Missing flag (config predating WOF-10) means opted in
+            wants_digest = escalation_config.get(f'{slot}_weekly_digest', True)
+            if name and phone and wants_digest and phone not in seen_phones:
+                recipients.append({"name": name, "phone": phone, "label": label})
+                seen_phones.add(phone)
+
+    for member in TeamMemberRepository(db).get_digest_recipients():
+        if member.phone not in seen_phones:
+            recipients.append({
+                "name": member.name,
+                "phone": member.phone,
+                "label": "Team Member Digest"
+            })
+            seen_phones.add(member.phone)
+
+    return recipients
+
+
 def send_weekly_escalation_summary() -> dict:
     """
-    Send weekly schedule summary SMS to escalation contacts.
+    Send the weekly schedule digest SMS to all opted-in recipients.
 
     This function is executed by APScheduler every Monday at 8:00 AM CST.
 
     Process:
-    1. Check if weekly escalation summary is enabled in settings
-    2. Get escalation contact configuration (names and phones)
-    3. Validate at least one contact is configured
-    4. Calculate next Monday 00:00 to following Sunday 23:59
-    5. Query schedules for the 7-day period
-    6. Compose weekly summary message with 48h shift handling
-    7. Send SMS to all escalation contacts (primary and secondary)
-    8. Return summary dict with successful/failed counts
+    1. Check if the weekly digest is enabled in settings
+    2. Collect recipients: opted-in escalation contacts + opted-in team
+       members (WOF-10 — decoupled from escalation grouping)
+    3. Calculate next Monday 00:00 to following Sunday 23:59
+    4. Query schedules for the 7-day period
+    5. Compose weekly summary message with 48h shift handling
+    6. Send SMS to every recipient
+    7. Return summary dict with successful/failed counts
 
     Returns:
         Dictionary with send results:
@@ -537,41 +604,21 @@ def send_weekly_escalation_summary() -> dict:
                     "message": "Feature disabled"
                 }
 
-            # Get escalation contact configuration
-            escalation_config = settings_service.get_escalation_config()
+            # Collect recipients: escalation contacts honoring per-contact
+            # digest flags + opted-in active team members (WOF-10)
+            recipients = collect_weekly_digest_recipients(db)
 
-            # Validate that escalation is enabled and at least one contact configured
-            if not escalation_config.get('enabled'):
-                logger.warning("Escalation contacts are disabled in config")
+            if not recipients:
+                logger.warning("Weekly digest enabled but no recipients opted in")
                 return {
                     "successful": 0,
                     "failed": 0,
                     "total": 0,
                     "timestamp": datetime.now(CHICAGO_TZ).isoformat(),
-                    "message": "Escalation contacts disabled"
+                    "message": "No digest recipients"
                 }
 
-            # Check if at least one contact has name and phone
-            has_primary = (escalation_config.get('primary_name') and
-                          escalation_config.get('primary_phone'))
-            has_secondary = (escalation_config.get('secondary_name') and
-                            escalation_config.get('secondary_phone'))
-
-            if not (has_primary or has_secondary):
-                logger.warning("No escalation contacts configured with name and phone")
-                return {
-                    "successful": 0,
-                    "failed": 0,
-                    "total": 0,
-                    "timestamp": datetime.now(CHICAGO_TZ).isoformat(),
-                    "message": "No contacts configured"
-                }
-
-            logger.info(
-                "Weekly escalation summary enabled, contacts configured: "
-                f"primary={'Yes' if has_primary else 'No'}, "
-                f"secondary={'Yes' if has_secondary else 'No'}"
-            )
+            logger.info("Weekly digest recipients: %d", len(recipients))
 
             # Calculate date range for 7 days starting from THIS Monday
             # (or next Monday if today is Monday and it's AFTER 8 AM - for manual triggers)
@@ -611,10 +658,10 @@ def send_weekly_escalation_summary() -> dict:
 
             logger.info(f"Composed weekly summary message ({len(message)} chars)")
 
-            # Send to escalation contacts
-            result = sms_service.send_escalation_weekly_summary(
+            # Send to all opted-in recipients (escalation contacts + members)
+            result = sms_service.send_weekly_digest(
                 message=message,
-                escalation_config=escalation_config
+                recipients=recipients
             )
 
             logger.info(
@@ -663,10 +710,10 @@ def trigger_weekly_summary_manually() -> dict:
             'total': result.get('total', 0)
         }
     except Exception as e:
-        logger.error("Manual weekly summary trigger failed: %s", str(e))
+        logger.error("Manual weekly summary trigger failed: %s", str(e), exc_info=True)
         return {
             'status': 'error',
-            'message': str(e),
+            'message': 'Weekly summary job failed - see server logs',
             'timestamp': datetime.now(CHICAGO_TZ).isoformat(),
             'successful': 0,
             'failed': 0,
@@ -742,10 +789,10 @@ def trigger_override_completion_manually() -> dict:
             'completed_count': result.get('completed_count', 0)
         }
     except Exception as e:
-        logger.error("Manual override completion trigger failed: %s", str(e))
+        logger.error("Manual override completion trigger failed: %s", str(e), exc_info=True)
         return {
             'status': 'error',
-            'message': str(e),
+            'message': 'Override completion job failed - see server logs',
             'timestamp': datetime.now(CHICAGO_TZ).isoformat(),
             'completed_count': 0
         }

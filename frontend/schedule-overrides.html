@@ -405,6 +405,13 @@
             });
         }
 
+        // Escape HTML entities (WOF-18 — values interpolated into innerHTML)
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         window.addEventListener('authReady', function(e) {
             currentUser = e.detail.user;
             loadOverridesData();
@@ -575,23 +582,23 @@
                 const statusClass = `status-${override.status}`;
 
                 return `
-                    <tr>
+                    <tr data-override-id="${override.id}">
                         <td>
                             <strong>${overrideDate}</strong>
                         </td>
-                        <td>${override.original_member_name}</td>
+                        <td>${escapeHtml(override.original_member_name)}</td>
                         <td>
-                            <span class="override-badge">${override.override_member_name}</span>
+                            <span class="override-badge">${escapeHtml(override.override_member_name)}</span>
                         </td>
                         <td>
-                            <span class="text-muted">${override.reason || '-'}</span>
+                            <span class="text-muted">${escapeHtml(override.reason || '-')}</span>
                         </td>
                         <td>
                             <span class="status-badge ${statusClass}">
-                                ${override.status.charAt(0).toUpperCase() + override.status.slice(1)}
+                                ${escapeHtml(override.status.charAt(0).toUpperCase() + override.status.slice(1))}
                             </span>
                         </td>
-                        <td>${override.created_by}</td>
+                        <td>${escapeHtml(override.created_by)}</td>
                         <td>
                             <span class="text-muted">${createdDate}</span>
                         </td>
@@ -787,22 +794,30 @@
                 var cells = row.querySelectorAll('td');
                 if (cells.length >= 7) {
                     // cells: 0=Date, 1=Original, 2=Override, 3=Reason, 4=Status, 5=Created By, 6=Created At, 7=Actions
+                    // Rebuild markup from text + dataset instead of copying cell innerHTML
+                    // (WOF-18, CodeQL js/xss-through-dom)
+                    var status = cells[4].textContent.trim();
+                    var statusCls = { active: 'status-active', completed: 'status-completed', cancelled: 'status-cancelled' }[status.toLowerCase()] || '';
+                    var statusBadge = '<span class="status-badge ' + statusCls + '">' + escapeHtml(status) + '</span>';
+                    var oid = Number(row.dataset.overrideId);
+                    var actions = (oid && cells[7] && cells[7].querySelector('button')) ?
+                        '<button class="btn btn-sm btn-ghost-danger admin-only" onclick="cancelOverride(' + oid + ')" title="Cancel Override"><i class="ti ti-x"></i></button>' : '';
                     html += '<div class="col-12">' +
                         '<div class="card override-card mb-0">' +
                         '<div class="card-body py-2 px-3">' +
                         '<div class="card-row">' +
-                        '<div><span class="card-label">Override Date</span><div class="card-value fw-bold">' + cells[0].textContent.trim() + '</div></div>' +
-                        cells[4].innerHTML +
+                        '<div><span class="card-label">Override Date</span><div class="card-value fw-bold">' + escapeHtml(cells[0].textContent.trim()) + '</div></div>' +
+                        statusBadge +
                         '</div>' +
                         '<div class="card-row">' +
-                        '<div><span class="card-label">Original</span><div class="card-value">' + cells[1].textContent.trim() + '</div></div>' +
-                        '<div><span class="card-label">Replacement</span><div class="card-value">' + cells[2].textContent.trim() + '</div></div>' +
+                        '<div><span class="card-label">Original</span><div class="card-value">' + escapeHtml(cells[1].textContent.trim()) + '</div></div>' +
+                        '<div><span class="card-label">Replacement</span><div class="card-value">' + escapeHtml(cells[2].textContent.trim()) + '</div></div>' +
                         '</div>' +
                         (cells[3].textContent.trim() !== '-' ?
-                            '<div><span class="card-label">Reason</span><div class="card-value text-muted" style="font-size:0.8rem;">' + cells[3].textContent.trim() + '</div></div>' : '') +
+                            '<div><span class="card-label">Reason</span><div class="card-value text-muted" style="font-size:0.8rem;">' + escapeHtml(cells[3].textContent.trim()) + '</div></div>' : '') +
                         '<div class="card-row mt-1">' +
-                        '<div class="text-muted" style="font-size:0.7rem;">' + cells[5].textContent.trim() + ' &middot; ' + cells[6].textContent.trim() + '</div>' +
-                        (cells[7] && cells[7].textContent.trim() !== '-' ? cells[7].innerHTML : '') +
+                        '<div class="text-muted" style="font-size:0.7rem;">' + escapeHtml(cells[5].textContent.trim()) + ' &middot; ' + escapeHtml(cells[6].textContent.trim()) + '</div>' +
+                        actions +
                         '</div>' +
                         '</div></div></div>';
                 }

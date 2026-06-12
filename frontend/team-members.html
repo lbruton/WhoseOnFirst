@@ -350,6 +350,13 @@
                             <input type="tel" class="form-control" name="secondary_phone" placeholder="+19185551234" pattern="^\+1\d{10}$">
                             <small class="form-hint">Personal phone for redundancy (optional)</small>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="weekly_digest_optin">
+                                <span class="form-check-label">Receive Monday weekly digest</span>
+                            </label>
+                            <small class="form-hint">Sends the 7-day schedule summary SMS every Monday at 8:00 AM CST (independent of escalation contacts)</small>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn" data-bs-dismiss="modal">Cancel</button>
@@ -387,6 +394,13 @@
                             <label class="form-label">Secondary Phone (Optional)</label>
                             <input type="tel" class="form-control" id="editSecondaryPhone" name="secondary_phone" pattern="^\+1\d{10}$">
                             <small class="form-hint">Personal phone for redundancy (optional)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="editWeeklyDigest" name="weekly_digest_optin">
+                                <span class="form-check-label">Receive Monday weekly digest</span>
+                            </label>
+                            <small class="form-hint">Sends the 7-day schedule summary SMS every Monday at 8:00 AM CST (independent of escalation contacts)</small>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -476,7 +490,7 @@
                                     <h4 class="alert-title">About Escalation Contacts</h4>
                                     <div class="text-muted">
                                         Escalation contacts are <strong>fixed contacts</strong> displayed on the dashboard alongside rotating on-call assignments.
-                                        They <strong>do not rotate</strong> and <strong>do not receive automated notifications</strong>.
+                                        They <strong>do not rotate</strong> and receive no shift notifications — each can individually opt in or out of the Monday weekly digest below.
                                     </div>
                                 </div>
                             </div>
@@ -492,7 +506,7 @@
 
                         <!-- Primary Escalation Contact -->
                         <h6 class="mb-3">Primary Escalation Contact (1st)</h6>
-                        <div class="row mb-4">
+                        <div class="row mb-2">
                             <div class="col-md-6">
                                 <label class="form-label">Name</label>
                                 <input type="text" class="form-control" id="primaryName" placeholder="First Last" maxlength="100">
@@ -503,10 +517,16 @@
                                 <small class="form-hint">Format: +1XXXXXXXXXX (E.164)</small>
                             </div>
                         </div>
+                        <div class="mb-4">
+                            <label class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="primaryWeeklyDigest" checked>
+                                <span class="form-check-label">Receives Monday weekly digest</span>
+                            </label>
+                        </div>
 
                         <!-- Secondary Escalation Contact -->
                         <h6 class="mb-3">Secondary Escalation Contact (2nd)</h6>
-                        <div class="row">
+                        <div class="row mb-2">
                             <div class="col-md-6">
                                 <label class="form-label">Name</label>
                                 <input type="text" class="form-control" id="secondaryName" placeholder="First Last" maxlength="100">
@@ -516,6 +536,12 @@
                                 <input type="tel" class="form-control" id="secondaryPhone" placeholder="+19185551234" pattern="^\+1\d{10}$">
                                 <small class="form-hint">Format: +1XXXXXXXXXX (E.164)</small>
                             </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="secondaryWeeklyDigest" checked>
+                                <span class="form-check-label">Receives Monday weekly digest</span>
+                            </label>
                         </div>
 
                         <!-- Weekly Schedule Summary -->
@@ -530,7 +556,9 @@
                                     <i class="ti ti-info-circle me-2"></i>
                                 </div>
                                 <div class="text-muted small">
-                                    Send a weekly SMS schedule summary to escalation contacts every <strong>Monday at 8:00 AM CST</strong>.
+                                    Send a weekly SMS schedule summary every <strong>Monday at 8:00 AM CST</strong> to all opted-in recipients:
+                                    escalation contacts with the digest toggle on (above) plus any team member with
+                                    "Receive Monday weekly digest" enabled on their profile.
                                     The message shows the upcoming 7-day schedule with team member names and phone numbers.
                                 </div>
                             </div>
@@ -538,7 +566,7 @@
                         <div class="mb-3">
                             <label class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="weeklyEnabled">
-                                <span class="form-check-label">Send weekly schedule summary to escalation contacts</span>
+                                <span class="form-check-label">Send weekly schedule summary to opted-in recipients</span>
                             </label>
                         </div>
                         <div class="text-end">
@@ -675,7 +703,7 @@
                             '<i class="ti ti-pencil"></i>' +
                         '</button>' +
                         '<button class="btn btn-sm btn-outline-' + (member.is_active ? 'warning' : 'success') + ' admin-only" ' +
-                                'onclick="toggleActive(event, ' + member.id + ', ' + member.is_active + ', \'' + escapeHtml(member.name).replace(/'/g, "\\'") + '\', \'' + escapeHtml(member.phone).replace(/'/g, "\\'") + '\')" ' +
+                                'data-action="toggle-active" ' +
                                 'title="' + (member.is_active ? 'Deactivate' : 'Activate') + '">' +
                             '<i class="ti ti-user-' + (member.is_active ? 'minus' : 'plus') + '"></i>' +
                         '</button>' +
@@ -782,7 +810,8 @@
                     body: JSON.stringify({
                         name: formData.get('name'),
                         phone: formData.get('phone'),
-                        secondary_phone: formData.get('secondary_phone') || null
+                        secondary_phone: formData.get('secondary_phone') || null,
+                        weekly_digest_optin: formData.get('weekly_digest_optin') === 'on'
                     })
                 });
 
@@ -820,6 +849,7 @@
             document.getElementById('editName').value = member.name;
             document.getElementById('editPhone').value = member.phone;
             document.getElementById('editSecondaryPhone').value = member.secondary_phone || '';
+            document.getElementById('editWeeklyDigest').checked = member.weekly_digest_optin || false;
 
             new bootstrap.Modal(document.getElementById('editMemberModal')).show();
         }
@@ -848,7 +878,8 @@
                     body: JSON.stringify({
                         name: formData.get('name'),
                         phone: formData.get('phone'),
-                        secondary_phone: formData.get('secondary_phone') || null
+                        secondary_phone: formData.get('secondary_phone') || null,
+                        weekly_digest_optin: document.getElementById('editWeeklyDigest').checked
                     })
                 });
 
@@ -1005,6 +1036,18 @@
                     applyFilter(this.getAttribute('data-filter'));
                 });
             });
+
+            // Delegated toggle-active handler — keeps member name/phone out of
+            // inline onclick JS strings (WOF-18, CodeQL js/incomplete-sanitization)
+            document.getElementById('membersContainer').addEventListener('click', function(e) {
+                const btn = e.target.closest('[data-action="toggle-active"]');
+                if (!btn) return;
+                const row = btn.closest('[data-member-id]');
+                if (!row) return;
+                const id = parseInt(row.dataset.memberId, 10);
+                const member = allMembers.find(m => m.id === id);
+                if (member) toggleActive(e, id, member.is_active, member.name, member.phone);
+            });
         });
 
         // Escalation Contacts
@@ -1027,6 +1070,9 @@
                 document.getElementById('primaryPhone').value = config.primary_phone || '';
                 document.getElementById('secondaryName').value = config.secondary_name || '';
                 document.getElementById('secondaryPhone').value = config.secondary_phone || '';
+                // Digest flags default true (pre-WOF-10 behavior)
+                document.getElementById('primaryWeeklyDigest').checked = config.primary_weekly_digest !== false;
+                document.getElementById('secondaryWeeklyDigest').checked = config.secondary_weekly_digest !== false;
 
                 // Load weekly summary setting
                 const weeklyResponse = await fetch(`${API_BASE}/settings/escalation-weekly`, {
@@ -1075,7 +1121,9 @@
                         primary_name: primaryName || null,
                         primary_phone: primaryPhone || null,
                         secondary_name: secondaryName || null,
-                        secondary_phone: secondaryPhone || null
+                        secondary_phone: secondaryPhone || null,
+                        primary_weekly_digest: document.getElementById('primaryWeeklyDigest').checked,
+                        secondary_weekly_digest: document.getElementById('secondaryWeeklyDigest').checked
                     })
                 });
 

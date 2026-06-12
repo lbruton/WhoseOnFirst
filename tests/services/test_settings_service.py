@@ -5,6 +5,10 @@ Covers: get_all_settings, set_setting (type detection), delete_setting,
         set_sms_template (validation), get_escalation_config,
         set_escalation_config, is_escalation_weekly_enabled,
         set_escalation_weekly_enabled
+
+WHO-43 (Task 0.5, TDD red phase) extends this file with 3 tests for
+transparent encrypt/decrypt when value_type="encrypted" — see
+TestEncryptedSettings at the bottom of this module.
 """
 
 import pytest
@@ -149,6 +153,36 @@ class TestSetEscalationConfig:
         assert "secondary_phone" in result
 
 
+class TestEscalationDigestFlags:
+    """WOF-10: per-contact weekly-digest opt-in flags on the escalation config.
+
+    Defaults are True so existing escalation contacts keep receiving the
+    Monday digest after the migration (AC: preserve current behavior).
+    """
+
+    def test_digest_flags_default_true(self, service):
+        config = service.get_escalation_config()
+        assert config["primary_weekly_digest"] is True
+        assert config["secondary_weekly_digest"] is True
+
+    def test_primary_opt_out_round_trips(self, service):
+        service.set_escalation_config(enabled=True, primary_weekly_digest=False)
+        config = service.get_escalation_config()
+        assert config["primary_weekly_digest"] is False
+        # Secondary is independent and untouched
+        assert config["secondary_weekly_digest"] is True
+
+    def test_flags_are_independent(self, service):
+        service.set_escalation_config(
+            enabled=True,
+            primary_weekly_digest=True,
+            secondary_weekly_digest=False
+        )
+        config = service.get_escalation_config()
+        assert config["primary_weekly_digest"] is True
+        assert config["secondary_weekly_digest"] is False
+
+
 class TestSettingsRepr:
 
     def test_settings_repr(self, service):
@@ -171,3 +205,126 @@ class TestEscalationWeekly:
         service.set_escalation_weekly_enabled(True)
         service.set_escalation_weekly_enabled(False)
         assert service.is_escalation_weekly_enabled() is False
+
+
+# ===========================================================================
+# WHO-43 — Encrypted value_type integration (TDD red phase)
+# ===========================================================================
+#
+# These tests pin the contract for design.md §Component 2:
+#   - set_setting(key, value, value_type="encrypted") encrypts before persist
+#   - get_setting(key) transparently decrypts encrypted-type rows
+#   - Decrypt failures return None (graceful) and log a warning
+#
+# They will fail until Task 3 wires SecretsService into SettingsService.
+
+class TestEncryptedSettings:
+    """Covers REQ-2 AC 1, AC 5; REQ-6 AC 3 (graceful decrypt failure)."""
+
+    def test_set_setting_with_encrypted_type_persists_ciphertext_not_plaintext(
+        self, service, monkeypatch
+    ):
+        """Covers REQ-2 AC 1.
+
+        When value_type='encrypted', the persisted row's `value` column
+        MUST hold ciphertext (not plaintext). Round-tripping the ciphertext
+        through Fernet must yield back the original plaintext.
+        """
+        # Use monkeypatch (auto-cleanup) and reset the cached Fernet so this
+        # test does not leak state into / inherit state from siblings.
+        monkeypatch.setenv("SECRET_KEY", "test-secret-key-settings-encrypt")  # gitleaks:allow (test-only fake key)
+        import src.services.secrets_service as _ss
+        monkeypatch.setattr(_ss, "_fernet_singleton", None, raising=False)
+
+        plaintext = "AC1234567890abcdef-twilio-token-secret-value"
+
+        service.set_setting(
+            "twilio_auth_token",
+            plaintext,
+            value_type="encrypted",
+            description="Twilio Auth Token (encrypted at rest)"
+        )
+
+        # Read the row directly via the repository so we bypass any
+        # transparent decrypt that get_setting may apply.
+        row = service.repository.get_by_key("twilio_auth_token")
+        assert row is not None
+        assert row.value_type == "encrypted"
+        assert row.value != plaintext, (
+            "Persisted value must be ciphertext, not plaintext"
+        )
+
+        # Ciphertext should round-trip via the SecretsService's Fernet.
+        from src.services.secrets_service import SecretsService
+        decrypted = SecretsService().decrypt(row.value)
+        assert decrypted == plaintext
+
+    def test_get_setting_with_encrypted_type_returns_decrypted_plaintext(
+        self, service, monkeypatch
+    ):
+        """Covers REQ-2 AC 1, AC 3 (round-trip via the service)."""
+        monkeypatch.setenv("SECRET_KEY", "test-secret-key-settings-decrypt")  # gitleaks:allow (test-only fake key)
+        import src.services.secrets_service as _ss
+        monkeypatch.setattr(_ss, "_fernet_singleton", None, raising=False)
+
+        plaintext = "another-twilio-token-9876543210abcdef"
+
+        # Encrypt directly via SecretsService and persist the ciphertext
+        # via the repository, simulating a row that was previously written
+        # by the encrypted-aware set_setting path.
+        from src.services.secrets_service import SecretsService
+        ciphertext = SecretsService().encrypt(plaintext)
+        service.repository.set_value(
+            "twilio_auth_token",
+            ciphertext,
+            "encrypted",
+            "Twilio token under test",
+        )
+
+        result = service.get_setting("twilio_auth_token")
+        assert result is not None
+        assert result.value == plaintext, (
+            "get_setting should transparently decrypt encrypted rows"
+        )
+
+    def test_get_setting_with_encrypted_type_returns_none_when_decryption_fails(
+        self, service, caplog, monkeypatch
+    ):
+        """Covers REQ-2 AC 5, REQ-6 AC 3 (graceful decrypt failure).
+
+        When the stored ciphertext cannot be decrypted (corruption, key
+        rotation, etc.), get_setting MUST return None and log a warning,
+        NOT propagate the exception.
+        """
+        import logging
+        monkeypatch.setenv("SECRET_KEY", "test-secret-key-bad-ciphertext")  # gitleaks:allow (test-only fake key)
+        import src.services.secrets_service as _ss
+        monkeypatch.setattr(_ss, "_fernet_singleton", None, raising=False)
+
+        # Persist a deliberately invalid ciphertext via the repository.
+        service.repository.set_value(
+            "twilio_auth_token",
+            "this-is-not-a-valid-fernet-token-garbage",
+            "encrypted",
+            "Corrupt ciphertext under test",
+        )
+
+        with caplog.at_level(logging.WARNING):
+            result = service.get_setting("twilio_auth_token")
+
+        assert result is None, (
+            "get_setting must return None when decryption fails, "
+            "not raise — callers fall through to env-var fallback"
+        )
+        # A warning-level log line should mention the decrypt failure.
+        warning_messages = [
+            rec.getMessage().lower() for rec in caplog.records
+            if rec.levelno >= logging.WARNING
+        ]
+        assert any(
+            "decrypt" in m or "encrypted" in m or "twilio_auth_token" in m
+            for m in warning_messages
+        ), (
+            "Decrypt failure should produce a warning log line. "
+            f"Got: {warning_messages}"
+        )

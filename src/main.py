@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 # Import routers
 from src.api.routes import team_members, shifts, schedules, notifications, auth, settings, schedule_overrides, admin
 from src.api.routes.version import router as version_router
+from src.version import get_app_version
 from src.scheduler import get_schedule_manager
 from src.models.database import SessionLocal
 from src.models.user import User, UserRole
@@ -91,7 +92,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="WhoseOnFirst API",
     description="Automated on-call rotation and SMS notification system for technical teams",
-    version="1.2.0",
+    version=get_app_version(),
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -125,7 +126,7 @@ async def api_info():
     """
     return {
         "name": "WhoseOnFirst API",
-        "version": "1.0.3",
+        "version": get_app_version(),
         "description": "On-call rotation and SMS notification system",
         "docs": "/docs",
         "redoc": "/redoc"
@@ -144,7 +145,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "whoseonfirst-api",
-        "version": "0.2.0"
+        "version": get_app_version()
     }
 
 
@@ -193,7 +194,7 @@ app.include_router(version_router)
 
 # Mount static files (frontend) - MUST be after API routes to avoid conflicts
 # Serve frontend from the frontend directory
-frontend_path = Path(__file__).parent.parent / "frontend"
+frontend_path = (Path(__file__).parent.parent / "frontend").resolve()
 if frontend_path.exists():
     app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
     logger.info(f"Serving frontend from: {frontend_path}")
@@ -227,13 +228,16 @@ if frontend_path.exists():
             if file_path.exists():
                 return FileResponse(file_path, headers=no_cache_headers)
 
-        # Check if the file exists directly
-        file_path = frontend_path / full_path
-        if file_path.exists() and file_path.is_file():
+        # Check if the file exists directly — guard against path traversal (CodeQL py/path-injection)
+        try:
+            resolved = (frontend_path / full_path).resolve()
+        except (ValueError, OSError):
+            resolved = None  # malformed path (e.g. NUL byte) -> SPA fallback
+        if resolved is not None and resolved.is_relative_to(frontend_path) and resolved.is_file():
             # HTML and sw.js must never be cached — stale sw.js breaks all future SW cache busts
-            if str(file_path).endswith(".html") or file_path.name == "sw.js":
-                return FileResponse(file_path, headers=no_cache_headers)
-            return FileResponse(file_path)
+            if resolved.name.endswith(".html") or resolved.name == "sw.js":
+                return FileResponse(resolved, headers=no_cache_headers)
+            return FileResponse(resolved)
 
         # Default to index.html for SPA routes
         return FileResponse(frontend_path / "index.html", headers=no_cache_headers)

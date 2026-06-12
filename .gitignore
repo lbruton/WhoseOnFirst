@@ -61,17 +61,29 @@ venv.bak/
 HANDOFF.md
 .mcp.json
 
-# Claude Code local configuration (keep local, not for deployment)
-.claude/
-CLAUDE.md
-ROADMAP.md
+# AI tooling local config
+# Root-level instruction files (CLAUDE.md / AGENTS.md / GEMINI.md) ARE tracked —
+# they describe the project. .claude/ is tracked too (project.json, settings.json,
+# hooks/, hookify rules) so project config travels with the repo; only the
+# per-machine settings.local.json stays local. Other tool config dirs stay local.
+.claude/settings.local.json
+.gemini/
+.codex/
+.kimi/
+.opencode/
 
-# E2E / Playwright test tooling (local dev only)
+# Git worktrees for isolated agent work — content dirs are transient, not project history
+.worktrees/
+.claude/worktrees/
+
+# E2E / Playwright — specs and config are tracked (WOF-22); only outputs are ignored
 .playwright-mcp/
-playwright.config.js
-e2e/
+test-results/
+playwright-report/
 
-# Documentation (keep local for reference, not needed in deployment)
+# Documentation
+# Foundation docs are tracked in .context/ (NOT ignored). docs/ now holds only
+# screenshots referenced by the app/README; loose files there stay local by default.
 docs/
 !docs/screenshots/
 
@@ -198,3 +210,7 @@ coverage/
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# WHO-43: Codacy CLI scan artifacts
+.codacy/
+*.sarif

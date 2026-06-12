@@ -13,6 +13,7 @@ from src.api.dependencies import get_db
 from src.api.schemas.schedule import (
     ScheduleResponse,
     ScheduleGenerateRequest,
+    ScheduleGenerateResponse,
     ScheduleRegenerateRequest
 )
 from src.services import (
@@ -175,7 +176,7 @@ def get_member_schedules(
     return schedules
 
 
-@router.post("/generate", response_model=List[ScheduleResponse], status_code=status.HTTP_201_CREATED)
+@router.post("/generate", response_model=ScheduleGenerateResponse, status_code=status.HTTP_201_CREATED)
 def generate_schedule(
     request: ScheduleGenerateRequest,
     db: Session = Depends(get_db),
@@ -187,12 +188,18 @@ def generate_schedule(
     By default, fails if schedules already exist for the period.
     Use force=true to regenerate existing schedules.
 
+    The rotation is anchored at start_date (WOF-9): the first member in
+    rotation order goes on call on the chosen start date, and no entries
+    are created for earlier days of that week. The response carries
+    non-blocking warnings — e.g. when the start date is today but the
+    daily 8:00 AM notification has already run.
+
     Args:
         request: Schedule generation request parameters
         db: Database session (injected)
 
     Returns:
-        List of generated schedule assignments
+        Envelope with the generated schedule assignments and any warnings
 
     Raises:
         HTTPException: 400 if schedules already exist (without force=true) or validation fails
@@ -213,7 +220,11 @@ def generate_schedule(
             weeks=request.weeks,
             force=request.force
         )
-        return schedules
+        warnings = service.get_generation_warnings(request.start_date, schedules)
+        return ScheduleGenerateResponse(
+            schedules=schedules,
+            warnings=warnings
+        )
     except ScheduleAlreadyExistsError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

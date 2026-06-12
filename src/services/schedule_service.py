@@ -12,7 +12,7 @@ The ScheduleService is responsible for:
 - Validating schedule operations
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List
 from sqlalchemy.orm import Session
 from pytz import timezone
@@ -20,6 +20,13 @@ from pytz import timezone
 from src.repositories.schedule_repository import ScheduleRepository
 from src.services.rotation_algorithm import RotationAlgorithmService
 from src.models.schedule import Schedule
+
+
+# Hour (America/Chicago) when the daily notification job fires. Owned here so
+# the scheduler's CronTrigger and the generation-warning check can never drift
+# apart (WOF-9): if generation starts "today" at or after this hour, today's
+# on-call has already been skipped by the daily job.
+DAILY_NOTIFICATION_HOUR = 8
 
 
 class ScheduleServiceError(Exception):
@@ -96,8 +103,10 @@ class ScheduleService:
                 "Use chicago_tz.localize() or start_date.replace(tzinfo=...)"
             )
 
-        # Calculate end date for the period
-        end_date = start_date + timedelta(weeks=weeks)
+        # Calculate end date for the period. The rotation can extend one
+        # trailing week past start_date + weeks on a mid-week start (WOF-9),
+        # so the duplicate check must cover the full generation horizon.
+        end_date = self.rotation_service.get_rotation_horizon_end(start_date, weeks)
 
         # Check if schedules already exist
         existing = self.schedule_repo.get_by_date_range(start_date, end_date)
@@ -123,6 +132,55 @@ class ScheduleService:
         schedules = self.schedule_repo.bulk_create(schedule_entries)
 
         return schedules
+
+    def get_generation_warnings(
+        self,
+        start_date: datetime,
+        schedules: List[Schedule]
+    ) -> List[str]:
+        """
+        Report non-blocking conditions for a just-generated schedule (WOF-9).
+
+        Two conditions are surfaced so the silent day-shift the user hit in
+        production can never recur without explanation:
+        1. Missed SMS: the start date is today (America/Chicago) and the
+           daily notification job has already run, so today's on-call will
+           not receive an SMS unless notifications are triggered manually.
+        2. Uncovered start day: no generated shift begins on the start date
+           (it fell mid-way through a multi-day shift that was skipped whole
+           rather than truncated).
+
+        Args:
+            start_date: The start date the schedule was generated with
+            schedules: The Schedule objects returned by generate_schedule
+
+        Returns:
+            List of human-readable warning strings (empty when nothing applies)
+        """
+        warnings = []
+
+        now = datetime.now(self.chicago_tz)
+        start_local = start_date.astimezone(self.chicago_tz)
+
+        if (start_local.date() == now.date()
+                and now.hour >= DAILY_NOTIFICATION_HOUR):
+            warnings.append(
+                f"Today's {DAILY_NOTIFICATION_HOUR}:00 AM notification has "
+                "already run; today's on-call will not receive an SMS unless "
+                "notifications are triggered manually."
+            )
+
+        if schedules:
+            # DB datetimes are naive America/Chicago wall time
+            earliest = min(s.start_datetime for s in schedules)
+            if earliest.date() > start_local.date():
+                warnings.append(
+                    f"No shift covers the start date "
+                    f"{start_local.date().isoformat()}; the first generated "
+                    f"shift begins {earliest.date().isoformat()}."
+                )
+
+        return warnings
 
     def get_current_week_schedule(self) -> List[Schedule]:
         """

@@ -10,12 +10,15 @@ Usage:
     python scripts/bump_version.py 1.1.0 --changelog "Added new feature X"
 
 Updates version in:
+- VERSION (canonical source of truth — every runtime surface reads this)
 - README.md (badge + current version)
-- src/main.py (FastAPI app + API endpoint)
-- frontend/components/sidebar.html (footer badge)
 - CLAUDE.md (multiple locations)
-- All docs/ files
+- Foundation docs (.context/ files)
 - CHANGELOG.md (creates new release entry)
+
+Runtime surfaces (src/main.py FastAPI app + /api + /health, /api/v1/version,
+and the sidebar footer badge) read VERSION dynamically, so they need no
+rewriting here — bumping VERSION is enough (WOF-14).
 """
 
 import sys
@@ -63,13 +66,19 @@ def print_error(text: str):
     print(f"{Colors.RED}✗ {text}{Colors.END}")
 
 
-def get_current_version(file_path: Path) -> str:
-    """Extract current version from main.py"""
-    content = file_path.read_text()
-    match = re.search(r'version="(\d+\.\d+\.\d+)"', content)
-    if match:
-        return match.group(1)
-    return "unknown"
+def get_current_version(version_file: Path) -> str:
+    """Read and validate the current version from the canonical VERSION file.
+
+    Fails fast rather than returning a sentinel — a missing/empty/malformed
+    VERSION would otherwise drive a global string replacement (e.g. replacing
+    "" or "unknown" across every file), corrupting the tree.
+    """
+    if not version_file.exists():
+        raise FileNotFoundError(f"Missing VERSION file: {version_file}")
+    current = version_file.read_text().strip()
+    if not re.match(r'^\d+\.\d+\.\d+$', current):
+        raise ValueError(f"VERSION file is empty or malformed: {current!r}")
+    return current
 
 
 def update_file(file_path: Path, old_version: str, new_version: str) -> Tuple[bool, int]:
@@ -191,9 +200,15 @@ def main():
     # Project root
     root = Path(__file__).parent.parent
 
-    # Get current version from main.py
-    main_py = root / "src" / "main.py"
-    old_version = get_current_version(main_py)
+    # Get current version from the canonical VERSION file (single source of truth).
+    # src/main.py now derives its version from VERSION at runtime (WOF-14), so the
+    # only literals left to rewrite are VERSION itself and the docs.
+    version_file = root / "VERSION"
+    try:
+        old_version = get_current_version(version_file)
+    except (FileNotFoundError, ValueError) as exc:
+        print_error(str(exc))
+        sys.exit(1)
 
     print_header(f"WhoseOnFirst Version Bump: {old_version} → {new_version}")
 
@@ -206,19 +221,19 @@ def main():
 
     # Files to update
     files_to_update = [
-        # Core application files
-        root / "src" / "main.py",
+        # Canonical source of truth — every runtime surface reads this
+        root / "VERSION",
+
+        # Docs that embed the version as text
         root / "README.md",
         root / "CLAUDE.md",
-        root / "frontend" / "components" / "sidebar.html",
 
-        # Documentation files
-        root / "docs" / "DOCUMENTATION_GUIDE.md",
-        root / "docs" / "planning" / "architecture.md",
-        root / "docs" / "planning" / "technical-stack.md",
-        root / "docs" / "reference" / "code-patterns.md",
-        root / "docs" / "RPI_PROCESS.md",
-        root / "docs" / "TAXONOMY.md",
+        # Foundation docs (.context/)
+        root / ".context" / "architecture.md",
+        root / ".context" / "technical-stack.md",
+        root / ".context" / "code-patterns.md",
+        root / ".context" / "rpi-process.md",
+        root / ".context" / "authentication.md",
     ]
 
     total_replacements = 0

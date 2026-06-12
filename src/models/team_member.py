@@ -21,6 +21,8 @@ class TeamMember(Base):
         secondary_phone: Optional secondary phone for dual-device paging
         is_active: Whether member is currently active in rotation
         rotation_order: Position in rotation sequence (lower numbers go first)
+        weekly_digest_optin: Whether member receives the Monday weekly digest
+            SMS (independent of escalation-contact status, WOF-10)
         created_at: Timestamp when member was added
         updated_at: Timestamp when member was last modified
 
@@ -41,6 +43,8 @@ class TeamMember(Base):
     secondary_phone = Column(String, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     rotation_order = Column(Integer, nullable=True, index=True)  # Order in rotation (nullable for flexibility)
+    # Monday weekly-digest opt-in, decoupled from escalation contacts (WOF-10)
+    weekly_digest_optin = Column(Boolean, default=False, nullable=False, server_default="0")
 
     # Timestamps
     created_at = Column(DateTime, default=func.now(), nullable=False)
@@ -81,6 +85,7 @@ class TeamMember(Base):
             "secondary_phone": self.secondary_phone,
             "is_active": self.is_active,
             "rotation_order": self.rotation_order,
+            "weekly_digest_optin": self.weekly_digest_optin,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

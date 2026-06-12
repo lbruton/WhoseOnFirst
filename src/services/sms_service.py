@@ -12,6 +12,7 @@ from time import sleep
 
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
+from twilio.http.http_client import TwilioHttpClient
 from sqlalchemy.orm import Session
 
 from ..repositories import NotificationLogRepository, ScheduleRepository, ScheduleOverrideRepository
@@ -66,6 +67,20 @@ class SMSService:
         """
         Initialize SMS service.
 
+        Resolves Twilio configuration in precedence order:
+            1. Database settings (DB) — populated via the admin UI (WHO-43).
+            2. Environment variables — preserved for existing deployments.
+            3. None — enters the explicit ``unconfigured`` state (mock_mode
+               stays False, config_source == "none"). The app boots so an
+               admin can land on /admin.html to configure Twilio, but any
+               send attempt raises SMSDeliveryError loudly. Mock mode is
+               NOT activated; that would silently log fake successful sends.
+
+        ``SMS_MOCK_MODE`` (env var) and ``mock_mode=True`` (constructor arg)
+        force mock mode regardless of any other configuration. Mock mode is
+        an explicit opt-in only — it is never entered automatically when
+        credentials are absent.
+
         Args:
             db: SQLAlchemy database session
             max_retries: Maximum retry attempts (default: 3)
@@ -78,8 +93,12 @@ class SMSService:
                 real SMS in dev containers — see `.env.dev.example`.
 
         Raises:
-            TwilioConfigurationError: If Twilio credentials are missing and
-                mock mode is not enabled.
+            Nothing on init. Missing credentials → unconfigured state
+            (config_source == "none", mock_mode stays False, sends raise
+            SMSDeliveryError). Present-but-rejected credentials (Twilio SDK
+            init failure) → also enter unconfigured state with a WARNING log
+            rather than raising, so the app stays up. TwilioConfigurationError
+            is no longer raised from __init__.
         """
         self.db = db
         self.max_retries = max_retries
@@ -87,33 +106,113 @@ class SMSService:
         # SMS_MOCK_MODE env var provides runtime override for dev containers.
         # OR'd with the constructor arg so tests passing mock_mode=True still work.
         self.mock_mode = mock_mode or os.getenv('SMS_MOCK_MODE', '').lower() in ('1', 'true', 'yes')
+        # When True, SMS service has no usable credentials AND no intentional
+        # mock-mode opt-in — sends MUST fail rather than silently log
+        # successful-delivered. See CodeRabbit C2 / WHO-49 follow-up.
+        self.unconfigured = False
 
         # Initialize repositories and services
         self.notification_repo = NotificationLogRepository(db)
         self.schedule_repo = ScheduleRepository(db)
         self.settings_service = SettingsService(db)
 
-        # Initialize Twilio client
-        if not self.mock_mode:
-            account_sid = os.getenv('TWILIO_ACCOUNT_SID')
-            auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-            self.from_phone = os.getenv('TWILIO_PHONE_NUMBER')
+        # Resolve Twilio config via precedence chain (DB → env → none/mock)
+        sid, token, phone, source = self._load_twilio_config()
+        self.config_source = source
 
-            if not all([account_sid, auth_token, self.from_phone]):
-                raise TwilioConfigurationError(
-                    "Twilio configuration missing. Please set TWILIO_ACCOUNT_SID, "
-                    "TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables."
-                )
-
+        if source in ("db", "env"):
             try:
-                self.twilio_client = Client(account_sid, auth_token)
-                logger.info("Twilio client initialized successfully")
-            except Exception as e:
-                raise TwilioConfigurationError(f"Failed to initialize Twilio client: {str(e)}")
+                self.twilio_client = Client(
+                    sid, token,
+                    http_client=TwilioHttpClient(timeout=5.0),
+                )
+                self.from_phone = phone
+                logger.info(
+                    f"SMS service: Twilio config loaded (source={source})"
+                )
+            except Exception as exc:
+                # Credentials were present but the Twilio SDK rejected them
+                # (expired/rotated/malformed token). Enter unconfigured state
+                # rather than crashing — the app stays up so an admin can
+                # correct the credentials via /admin.html. Subsequent sends
+                # fail loudly via SMSDeliveryError (T9).
+                logger.warning(
+                    f"SMS service: Twilio SDK rejected credentials from "
+                    f"{source} ({exc}) — entering unconfigured state"
+                )
+                self.unconfigured = True
+                self.twilio_client = None
+                self.from_phone = "+15551234567"  # Placeholder; never used.
+                self.config_source = "none"
+        elif source == "none":
+            # No DB config and no env config — DO NOT enter mock mode (which
+            # would silently log fake successful sends). Mark service as
+            # unconfigured so any send attempt raises SMSDeliveryError.
+            # The app still boots so an admin can land on /admin.html and
+            # configure Twilio via the new UI.
+            self.unconfigured = True
+            self.twilio_client = None
+            self.from_phone = "+15551234567"  # Placeholder; never used.
+            logger.warning(
+                "SMS service: no credentials configured — running in "
+                "unconfigured mode, sends will fail (source=none)"
+            )
         else:
+            # source == "mock" — intentional dev fake, mock_mode already True.
             self.twilio_client = None
             self.from_phone = "+15551234567"  # Mock phone number
-            logger.info("SMS service initialized in mock mode")
+            logger.info(
+                "SMS service: mock mode forced via SMS_MOCK_MODE env var "
+                "(source=mock)"
+            )
+
+    def _load_twilio_config(
+        self,
+    ) -> tuple[Optional[str], Optional[str], Optional[str], str]:
+        """Resolve Twilio config in precedence order: DB → env → none/mock.
+
+        Returns:
+            Tuple of ``(sid, token, phone, source)`` where ``source`` is one
+            of ``"db"``, ``"env"``, ``"none"``, or ``"mock"``. The credential
+            slots are ``None`` when ``source`` is ``"none"`` or ``"mock"``.
+
+        Notes:
+            - DB lookup uses ``SettingsService.get_setting`` which returns
+              ``None`` both when the row is missing AND when decryption of an
+              encrypted value fails (e.g. SECRET_KEY rotation). Both cases
+              fall through to env, then to ``"none"``.
+            - Mock mode short-circuits the chain — when ``self.mock_mode`` is
+              already truthy from the env var or constructor arg, no DB or
+              env reads happen.
+        """
+        if self.mock_mode:
+            return (None, None, None, "mock")
+
+        # Try DB first
+        sid_setting = self.settings_service.get_setting("twilio_account_sid")
+        token_setting = self.settings_service.get_setting("twilio_auth_token")
+        phone_setting = self.settings_service.get_setting("twilio_phone_number")
+        if (
+            sid_setting and sid_setting.value
+            and token_setting and token_setting.value
+            and phone_setting and phone_setting.value
+        ):
+            return (
+                sid_setting.value,
+                token_setting.value,
+                phone_setting.value,
+                "db",
+            )
+
+        # Try env vars
+        env_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        env_token = os.getenv("TWILIO_AUTH_TOKEN")
+        env_phone = os.getenv("TWILIO_PHONE_NUMBER")
+        if env_sid and env_token and env_phone:
+            return (env_sid, env_token, env_phone, "env")
+
+        # Nothing configured
+        return (None, None, None, "none")
 
     def send_notification(
         self,
@@ -327,6 +426,23 @@ class SMSService:
                     "error": None
                 }
 
+            except SMSDeliveryError as e:
+                # Permanent failure — service is unconfigured. Do not retry;
+                # log exactly one failure row and exit the loop immediately.
+                last_error = str(e)
+                error_msg = f"SMS unconfigured on {phone_type} phone for schedule {schedule.id}: {str(e)}"
+                logger.error(error_msg)
+
+                self.notification_repo.log_notification_attempt(
+                    schedule_id=schedule.id,
+                    status='failed',
+                    twilio_sid=None,
+                    error_message=error_msg,
+                    recipient_name=recipient_name,
+                    recipient_phone=phone
+                )
+                break
+
             except TwilioRestException as e:
                 last_error = str(e)
                 error_msg = f"Twilio error on {phone_type} phone (attempt {attempt + 1}/{self.max_retries}): {str(e)}"
@@ -391,8 +507,21 @@ class SMSService:
             Dictionary with Twilio response data (sid, status)
 
         Raises:
-            TwilioRestException: If Twilio API call fails
+            SMSDeliveryError: Always raised when the service is in unconfigured
+                state (no Twilio credentials) — before any Twilio API call is
+                attempted. This is a permanent failure; callers must not retry.
+            TwilioRestException: If the Twilio API call fails. Only raised when
+                the service is fully configured (config_source in ("db", "env")).
         """
+        if self.unconfigured:
+            # Refuse to fake-deliver when no Twilio creds are configured.
+            # Without this, an unconfigured deploy would log every send as
+            # successful while transmitting nothing (CodeRabbit C2).
+            raise SMSDeliveryError(
+                "SMS not configured — no Twilio credentials available "
+                "(configure via /admin.html or set TWILIO_* env vars)"
+            )
+
         if self.mock_mode:
             # Mock mode for testing
             logger.info(f"[MOCK] Sending SMS to {to_phone}: {message_body}")
@@ -864,11 +993,12 @@ class SMSService:
         escalation_config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Send weekly schedule summary SMS to all configured escalation contacts.
+        Send the weekly schedule summary SMS to opted-in escalation contacts.
 
-        Sends the provided message to all escalation contact phones (primary
-        and secondary contacts). Each send is logged individually with
-        schedule_id=NULL to indicate a weekly summary notification.
+        Thin wrapper over :meth:`send_weekly_digest` that builds the
+        recipient list from the escalation config. Each contact's
+        ``*_weekly_digest`` flag is honored individually (WOF-10); a missing
+        flag (config predating WOF-10) counts as opted in.
 
         Args:
             message: The weekly summary message text
@@ -877,6 +1007,62 @@ class SMSService:
                 - primary_phone: Primary contact phone
                 - secondary_name: Secondary contact name
                 - secondary_phone: Secondary contact phone
+                - primary_weekly_digest: Primary digest opt-in (default True)
+                - secondary_weekly_digest: Secondary digest opt-in (default True)
+
+        Returns:
+            Dictionary with send results (see send_weekly_digest)
+
+        Example:
+            >>> config = settings_service.get_escalation_config()
+            >>> message = sms_service._compose_weekly_summary(schedules)
+            >>> result = sms_service.send_escalation_weekly_summary(message, config)
+            >>> print(f"Sent to {result['successful']}/{result['total']} contacts")
+        """
+        contacts = []
+
+        # Primary escalation contact (individually opted in)
+        if (escalation_config.get('primary_name')
+                and escalation_config.get('primary_phone')
+                and escalation_config.get('primary_weekly_digest', True)):
+            contacts.append({
+                "name": escalation_config['primary_name'],
+                "phone": escalation_config['primary_phone'],
+                "label": "Primary Escalation Contact"
+            })
+
+        # Secondary escalation contact (individually opted in)
+        if (escalation_config.get('secondary_name')
+                and escalation_config.get('secondary_phone')
+                and escalation_config.get('secondary_weekly_digest', True)):
+            contacts.append({
+                "name": escalation_config['secondary_name'],
+                "phone": escalation_config['secondary_phone'],
+                "label": "Secondary Escalation Contact"
+            })
+
+        return self.send_weekly_digest(message, contacts)
+
+    def send_weekly_digest(
+        self,
+        message: str,
+        recipients: list
+    ) -> Dict[str, Any]:
+        """
+        Send the weekly schedule digest SMS to a list of recipients (WOF-10).
+
+        Sends the provided message to every recipient. Each send is logged
+        individually with schedule_id=NULL to indicate a weekly digest
+        notification. Recipients may be escalation contacts or opted-in team
+        members — the caller decides (see
+        scheduler.schedule_manager.collect_weekly_digest_recipients).
+
+        Args:
+            message: The weekly digest message text
+            recipients: List of dicts with keys:
+                - name: Recipient display name
+                - phone: Recipient phone (E.164)
+                - label: Recipient role label for logs/details
 
         Returns:
             Dictionary with send results:
@@ -886,14 +1072,8 @@ class SMSService:
                 "total": int (total attempted sends),
                 "details": list of individual send results
             }
-
-        Example:
-            >>> config = settings_service.get_escalation_config()
-            >>> message = sms_service._compose_weekly_summary(schedules)
-            >>> result = sms_service.send_escalation_weekly_summary(message, config)
-            >>> print(f"Sent to {result['successful']}/{result['total']} contacts")
         """
-        logger.info("Sending weekly escalation summary to configured contacts")
+        logger.info("Sending weekly digest to %d recipients", len(recipients))
 
         results = {
             "successful": 0,
@@ -902,24 +1082,7 @@ class SMSService:
             "details": []
         }
 
-        # Collect all contacts to send to
-        contacts = []
-
-        # Primary escalation contact
-        if escalation_config.get('primary_name') and escalation_config.get('primary_phone'):
-            contacts.append({
-                "name": escalation_config['primary_name'],
-                "phone": escalation_config['primary_phone'],
-                "label": "Primary Escalation Contact"
-            })
-
-        # Secondary escalation contact
-        if escalation_config.get('secondary_name') and escalation_config.get('secondary_phone'):
-            contacts.append({
-                "name": escalation_config['secondary_name'],
-                "phone": escalation_config['secondary_phone'],
-                "label": "Secondary Escalation Contact"
-            })
+        contacts = recipients
 
         # Send to each contact
         for contact in contacts:
@@ -1042,6 +1205,14 @@ class SMSService:
         Raises:
             TwilioRestException: If Twilio API call fails
         """
+        if self.unconfigured:
+            # No client to query — surface "no record" instead of fake delivered.
+            logger.warning(
+                "get_delivery_status called while SMS unconfigured (sid=%s)",
+                twilio_sid,
+            )
+            return None
+
         if self.mock_mode:
             return {
                 "sid": twilio_sid,

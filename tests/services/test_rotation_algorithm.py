@@ -44,7 +44,7 @@ class TestRotationAlgorithmBasic:
     ):
         """Test generating a single week rotation with 4 active members and 6 shifts."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4, 8, 0))  # Monday
+        start_date = chicago_tz.localize(datetime(2025, 11, 3, 8, 0))  # Monday
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -66,7 +66,7 @@ class TestRotationAlgorithmBasic:
     ):
         """Test generating a standard 4-week rotation."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=4)
 
@@ -78,7 +78,7 @@ class TestRotationAlgorithmBasic:
     ):
         """Test that every shift is assigned each week."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=3)
 
@@ -105,7 +105,7 @@ class TestRotationAlgorithmBasic:
                    member_index   = shifts_elapsed % num_members
         """
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         members = TeamMemberRepository(db_session).get_ordered_for_rotation(active_only=True)
         member_ids = [m.id for m in members]
@@ -137,7 +137,7 @@ class TestRotationAlgorithmBasic:
     ):
         """Test that each member moves to the next shift position each week."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=2)
 
@@ -176,7 +176,7 @@ class TestRotationAlgorithmEdgeCases:
         member = member_repo.create(sample_team_member_data)
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=2)
 
@@ -202,7 +202,7 @@ class TestRotationAlgorithmEdgeCases:
         member2 = member_repo.create(member2_data)
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -251,7 +251,7 @@ class TestRotationAlgorithmEdgeCases:
             })
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=7)
 
@@ -297,7 +297,7 @@ class TestRotationAlgorithmEdgeCases:
             })
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -324,7 +324,7 @@ class TestRotationAlgorithmEdgeCases:
             })
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=3)
 
@@ -357,7 +357,7 @@ class TestRotationAlgorithmEdgeCases:
             })
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=8)
 
@@ -393,7 +393,7 @@ class TestRotationAlgorithmErrors:
     ):
         """Test that rotation fails when no active members exist."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         with pytest.raises(InsufficientMembersError) as exc_info:
             service.generate_rotation(start_date, weeks=1)
@@ -405,7 +405,7 @@ class TestRotationAlgorithmErrors:
     ):
         """Test that rotation fails when no shifts are configured."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         with pytest.raises(NoShiftsConfiguredError) as exc_info:
             service.generate_rotation(start_date, weeks=1)
@@ -417,7 +417,7 @@ class TestRotationAlgorithmErrors:
     ):
         """Test that weeks=0 raises InvalidWeekCountError."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         with pytest.raises(InvalidWeekCountError) as exc_info:
             service.generate_rotation(start_date, weeks=0)
@@ -429,7 +429,7 @@ class TestRotationAlgorithmErrors:
     ):
         """Test that negative weeks raises InvalidWeekCountError."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         with pytest.raises(InvalidWeekCountError):
             service.generate_rotation(start_date, weeks=-1)
@@ -454,10 +454,10 @@ class TestRotationAlgorithmErrors:
 class TestRotationAlgorithmDateTime:
     """Tests for datetime calculations and timezone handling."""
 
-    def test_normalizes_to_monday(
+    def test_anchors_to_start_date(
         self, db_session, populated_team_members, populated_shifts, chicago_tz
     ):
-        """Test that any start_date is normalized to Monday of that week."""
+        """Test that the rotation anchors at the start date, not Monday (WOF-9)."""
         service = RotationAlgorithmService(db_session)
 
         # Start on Thursday, Nov 6 (weekday=3)
@@ -465,17 +465,17 @@ class TestRotationAlgorithmDateTime:
 
         entries = service.generate_rotation(thursday, weeks=1)
 
-        # First entry should start on Monday, Nov 3 (going back 3 days from Thursday)
+        # First entry starts on Thursday itself — never an earlier weekday
         first_entry = min(entries, key=lambda e: e["start_datetime"])
-        assert first_entry["start_datetime"].weekday() == 0  # Monday
-        assert first_entry["start_datetime"].date() == datetime(2025, 11, 3).date()
+        assert first_entry["start_datetime"].weekday() == 3  # Thursday
+        assert first_entry["start_datetime"].date() == datetime(2025, 11, 6).date()
 
     def test_shifts_start_at_8am(
         self, db_session, populated_team_members, populated_shifts, chicago_tz
     ):
         """Test that all shifts start at 8:00 AM Chicago time."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -488,7 +488,7 @@ class TestRotationAlgorithmDateTime:
     ):
         """Test that all generated datetimes are timezone-aware."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=2)
 
@@ -501,7 +501,7 @@ class TestRotationAlgorithmDateTime:
     ):
         """Test that end_datetime = start_datetime + duration_hours."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -527,7 +527,7 @@ class TestRotationAlgorithmDateTime:
         })
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))  # Monday
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))  # Monday
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -547,11 +547,11 @@ class TestRotationAlgorithmDateTime:
     ):
         """Test that week_number uses ISO week numbering."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))  # Monday
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))  # Monday
 
         entries = service.generate_rotation(start_date, weeks=3)
 
-        # Monday Nov 4, 2025 is ISO week 45
+        # Monday Nov 3, 2025 is ISO week 45
         # Week 1: Week 45
         # Week 2: Week 46
         # Week 3: Week 47
@@ -576,7 +576,7 @@ class TestRotationAlgorithmDateTime:
             })
 
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))  # Monday
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))  # Monday
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -601,7 +601,7 @@ class TestRotationAlgorithmReturnFormat:
     ):
         """Test that returned dicts are compatible with ScheduleRepository.bulk_create()."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -619,7 +619,7 @@ class TestRotationAlgorithmReturnFormat:
     ):
         """Test that every entry has all required fields."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=2)
 
@@ -641,7 +641,7 @@ class TestRotationAlgorithmReturnFormat:
     ):
         """Test that all entries have notified=False initially."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=3)
 
@@ -653,7 +653,7 @@ class TestRotationAlgorithmReturnFormat:
     ):
         """Test that all team_member_ids refer to actual database members."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -670,7 +670,7 @@ class TestRotationAlgorithmReturnFormat:
     ):
         """Test that all shift_ids refer to actual database shifts."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -696,7 +696,7 @@ class TestRotationAlgorithmActiveMemberFilter:
         """Test that by default, only active members are included."""
         # populated_team_members has 4 active, 1 inactive
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(start_date, weeks=1)
 
@@ -714,7 +714,7 @@ class TestRotationAlgorithmActiveMemberFilter:
     ):
         """Test that inactive members are included when active_members_only=False."""
         service = RotationAlgorithmService(db_session)
-        start_date = chicago_tz.localize(datetime(2025, 11, 4))
+        start_date = chicago_tz.localize(datetime(2025, 11, 3))
 
         entries = service.generate_rotation(
             start_date, weeks=2, active_members_only=False
@@ -730,3 +730,171 @@ class TestRotationAlgorithmActiveMemberFilter:
         # With 5 total members and 6 shifts * 2 weeks = 12 assignments
         # Each member works 2-3 times, so all should appear
         assert len(assigned_member_ids.intersection(all_member_ids)) >= 4
+
+
+# ============================================================================
+# Test Class: Start-Date Anchoring (WOF-9)
+# ============================================================================
+
+class TestRotationAnchoring:
+    """Tests for anchoring the rotation at the requested start date (WOF-9).
+
+    The rotation must place the first member (lowest rotation_order) on the
+    first shift on or after the chosen start date, and must never create
+    entries for days before that date. A mid-week start produces a partial
+    week 0 plus one extra trailing week so coverage from the start date is
+    always at least `weeks` full weeks.
+
+    Reference dates (populated_shifts: Mon 24h, Tue-Wed 48h, Thu/Fri/Sat/Sun 24h):
+    - Monday    2025-11-03
+    - Tuesday   2025-11-04
+    - Wednesday 2025-11-05
+    - Sunday    2025-11-09
+    """
+
+    def _active_members(self, db_session):
+        """Active members in rotation order (the order the algorithm walks)."""
+        return TeamMemberRepository(db_session).get_ordered_for_rotation(
+            active_only=True
+        )
+
+    def test_monday_start_unchanged_full_week(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """A Monday start generates a full week with member 1 on Monday."""
+        service = RotationAlgorithmService(db_session)
+        monday = chicago_tz.localize(datetime(2025, 11, 3))
+
+        entries = service.generate_rotation(monday, weeks=1)
+
+        assert len(entries) == 6
+        first_entry = min(entries, key=lambda e: e["start_datetime"])
+        assert first_entry["start_datetime"].date() == datetime(2025, 11, 3).date()
+        members = self._active_members(db_session)
+        assert first_entry["team_member_id"] == members[0].id
+
+    def test_midweek_start_creates_no_entries_before_start_date(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """No entry may start on a day before the requested start date."""
+        service = RotationAlgorithmService(db_session)
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+
+        entries = service.generate_rotation(tuesday, weeks=4)
+
+        earliest = min(e["start_datetime"] for e in entries)
+        assert earliest.date() >= datetime(2025, 11, 4).date()
+
+    def test_midweek_start_assigns_first_member_to_start_day(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Member 1 (rotation order) goes on call on the chosen start date."""
+        service = RotationAlgorithmService(db_session)
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+
+        entries = service.generate_rotation(tuesday, weeks=4)
+
+        first_entry = min(entries, key=lambda e: e["start_datetime"])
+        assert first_entry["start_datetime"].date() == datetime(2025, 11, 4).date()
+        members = self._active_members(db_session)
+        assert first_entry["team_member_id"] == members[0].id
+
+    def test_midweek_start_week_zero_is_partial(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Week 0 of a Tuesday start contains only Tue-Wed through Sunday shifts."""
+        service = RotationAlgorithmService(db_session)
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+
+        entries = service.generate_rotation(tuesday, weeks=4)
+
+        week_zero = [
+            e for e in entries
+            if e["start_datetime"].date() <= datetime(2025, 11, 9).date()
+        ]
+        # Tue-Wed, Thu, Fri, Sat, Sun — Monday is excluded
+        assert len(week_zero) == 5
+
+    def test_midweek_start_adds_trailing_week_for_min_coverage(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """A mid-week start adds one trailing week so coverage >= `weeks`."""
+        service = RotationAlgorithmService(db_session)
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+
+        entries = service.generate_rotation(tuesday, weeks=4)
+
+        # 5 partial week-0 entries + 4 full weeks * 6 shifts = 29
+        assert len(entries) == 29
+        # The last entry is Sunday of the trailing week (Dec 7)
+        latest = max(e["start_datetime"] for e in entries)
+        assert latest.date() == datetime(2025, 12, 7).date()
+
+    def test_rotation_continues_circularly_after_partial_week(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Members cycle continuously across the partial week 0 boundary."""
+        service = RotationAlgorithmService(db_session)
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+
+        entries = service.generate_rotation(tuesday, weeks=2)
+
+        members = self._active_members(db_session)
+        member_ids = [m.id for m in members]
+        chronological = sorted(entries, key=lambda e: e["start_datetime"])
+        for index, entry in enumerate(chronological):
+            expected = member_ids[index % len(member_ids)]
+            assert entry["team_member_id"] == expected, (
+                f"Entry {index} ({entry['start_datetime']}): "
+                f"expected member {expected}, got {entry['team_member_id']}"
+            )
+
+    def test_start_inside_double_shift_skips_that_shift(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Starting on the second day of a 48h shift skips that shift entirely.
+
+        Wednesday falls inside the Tuesday-Wednesday double; the shift is
+        never truncated, so week 0 begins on Thursday and the start day is
+        left uncovered (surfaced to the caller as a generation warning).
+        """
+        service = RotationAlgorithmService(db_session)
+        wednesday = chicago_tz.localize(datetime(2025, 11, 5))
+
+        entries = service.generate_rotation(wednesday, weeks=1)
+
+        earliest = min(e["start_datetime"] for e in entries)
+        assert earliest.date() == datetime(2025, 11, 6).date()  # Thursday
+        # Week 0: Thu, Fri, Sat, Sun (4) + one trailing full week (6)
+        assert len(entries) == 10
+
+    def test_sunday_start_week_zero_single_entry(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """A Sunday start yields a single week-0 entry plus a trailing week."""
+        service = RotationAlgorithmService(db_session)
+        sunday = chicago_tz.localize(datetime(2025, 11, 9))
+
+        entries = service.generate_rotation(sunday, weeks=1)
+
+        assert len(entries) == 7  # Sunday + 6 shifts the following week
+        first_entry = min(entries, key=lambda e: e["start_datetime"])
+        assert first_entry["start_datetime"].date() == datetime(2025, 11, 9).date()
+        members = self._active_members(db_session)
+        assert first_entry["team_member_id"] == members[0].id
+
+    def test_get_rotation_horizon_end(
+        self, db_session, populated_team_members, populated_shifts, chicago_tz
+    ):
+        """Horizon end accounts for the trailing week on mid-week starts."""
+        service = RotationAlgorithmService(db_session)
+
+        monday = chicago_tz.localize(datetime(2025, 11, 3))
+        assert service.get_rotation_horizon_end(monday, weeks=4) == (
+            chicago_tz.localize(datetime(2025, 12, 1))
+        )
+
+        tuesday = chicago_tz.localize(datetime(2025, 11, 4))
+        assert service.get_rotation_horizon_end(tuesday, weeks=4) == (
+            chicago_tz.localize(datetime(2025, 12, 8))
+        )

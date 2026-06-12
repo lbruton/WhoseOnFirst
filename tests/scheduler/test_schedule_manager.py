@@ -8,7 +8,7 @@ Covers: send_daily_notifications, trigger_notifications_manually,
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock, PropertyMock
 from contextlib import contextmanager
 
@@ -20,6 +20,7 @@ from src.scheduler.schedule_manager import (
     trigger_weekly_summary_manually,
     complete_past_overrides,
     trigger_override_completion_manually,
+    collect_weekly_digest_recipients,
     ScheduleManager,
 )
 
@@ -100,7 +101,8 @@ class TestTriggerNotificationsManually:
             result = trigger_notifications_manually()
 
         assert result["status"] == "error"
-        assert "Twilio down" in result["message"]
+        assert result["message"] == "Daily notification job failed - see server logs"
+        assert "Twilio down" not in result["message"]
         assert result["successful"] == 0
 
 
@@ -172,6 +174,70 @@ class TestCheckAutoRenewal:
 
             MockSchedule.return_value.generate_schedule.assert_called_once()
 
+    def test_generation_receives_timezone_aware_start_date(self):
+        """The DB returns naive datetimes; generate_schedule requires tz-aware (WOF-15)."""
+        mock_db = MagicMock()
+        mock_schedule = MagicMock()
+        mock_schedule.end_datetime = datetime.now() + timedelta(days=2)  # naive, like the DB
+
+        with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.ScheduleService") as MockSchedule:
+            MockSettings.return_value.is_auto_renew_enabled.return_value = True
+            MockSettings.return_value.get_auto_renew_threshold_weeks.return_value = 4
+            MockSettings.return_value.get_auto_renew_weeks.return_value = 8
+            MockSchedule.return_value.schedule_repo.get_all.return_value = [mock_schedule]
+            MockSchedule.return_value.generate_schedule.return_value = [MagicMock()] * 10
+
+            check_auto_renewal()
+
+            MockSchedule.return_value.generate_schedule.assert_called_once()
+            passed_start = MockSchedule.return_value.generate_schedule.call_args.kwargs["start_date"]
+            assert passed_start.tzinfo is not None, (
+                "check_auto_renewal must localize the naive DB end_datetime before "
+                "calling generate_schedule, which rejects naive datetimes"
+            )
+
+    def test_renewal_with_real_schedule_service(self, db_session):
+        """End-to-end against the real ScheduleService — the seam the mocks hide (WOF-15)."""
+        from src.models.team_member import TeamMember
+        from src.models.shift import Shift
+        from src.models.schedule import Schedule
+        from src.scheduler.schedule_manager import CHICAGO_TZ
+
+        members = [
+            TeamMember(name="Alice", phone="+15551111111", is_active=True, rotation_order=0),
+            TeamMember(name="Bob", phone="+15552222222", is_active=True, rotation_order=1),
+        ]
+        db_session.add_all(members)
+        shift = Shift(shift_number=1, day_of_week="Monday", duration_hours=24, start_time="08:00")
+        db_session.add(shift)
+        db_session.commit()
+
+        # One schedule ending in 2 days — naive, exactly as the repository stores it
+        now_naive = datetime.now(CHICAGO_TZ).replace(tzinfo=None)
+        db_session.add(Schedule(
+            team_member_id=members[0].id,
+            shift_id=shift.id,
+            week_number=1,
+            start_datetime=now_naive + timedelta(days=1),
+            end_datetime=now_naive + timedelta(days=2),
+            notified=False,
+        ))
+        db_session.commit()
+
+        with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(db_session)), \
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings:
+            MockSettings.return_value.is_auto_renew_enabled.return_value = True
+            MockSettings.return_value.get_auto_renew_threshold_weeks.return_value = 4
+            MockSettings.return_value.get_auto_renew_weeks.return_value = 4
+
+            # Pre-fix this raises ValueError("start_date must be timezone-aware")
+            check_auto_renewal()
+
+        new_count = db_session.query(Schedule).count()
+        assert new_count > 1, "auto-renewal should have generated new schedule rows"
+
 
 # ---------------------------------------------------------------------------
 # send_weekly_escalation_summary
@@ -190,22 +256,26 @@ class TestSendWeeklyEscalationSummary:
         assert result["total"] == 0
         assert result["message"] == "Feature disabled"
 
-    def test_escalation_contacts_disabled_returns_early(self):
+    def test_no_recipients_returns_early(self):
+        """WOF-10: escalation disabled + no opted-in members = nothing to send."""
         mock_db = MagicMock()
         with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
-             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings:
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers:
             MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
             MockSettings.return_value.get_escalation_config.return_value = {"enabled": False}
+            MockMembers.return_value.get_digest_recipients.return_value = []
 
             result = send_weekly_escalation_summary()
 
         assert result["total"] == 0
-        assert result["message"] == "Escalation contacts disabled"
+        assert result["message"] == "No digest recipients"
 
-    def test_no_contacts_configured_returns_early(self):
+    def test_empty_contacts_and_no_members_returns_early(self):
         mock_db = MagicMock()
         with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
-             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings:
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers:
             MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
             MockSettings.return_value.get_escalation_config.return_value = {
                 "enabled": True,
@@ -214,11 +284,12 @@ class TestSendWeeklyEscalationSummary:
                 "secondary_name": "",
                 "secondary_phone": "",
             }
+            MockMembers.return_value.get_digest_recipients.return_value = []
 
             result = send_weekly_escalation_summary()
 
         assert result["total"] == 0
-        assert result["message"] == "No contacts configured"
+        assert result["message"] == "No digest recipients"
 
     def test_success_sends_to_contacts(self):
         mock_db = MagicMock()
@@ -234,17 +305,133 @@ class TestSendWeeklyEscalationSummary:
         with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
              patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
              patch("src.scheduler.schedule_manager.ScheduleService") as MockSchedule, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers, \
              patch("src.scheduler.schedule_manager.SMSService") as MockSMS:
             MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
             MockSettings.return_value.get_escalation_config.return_value = escalation_config
             MockSchedule.return_value.schedule_repo.get_by_date_range.return_value = []
+            MockMembers.return_value.get_digest_recipients.return_value = []
             MockSMS.return_value._compose_weekly_summary.return_value = "Weekly summary"
-            MockSMS.return_value.send_escalation_weekly_summary.return_value = sms_result
+            MockSMS.return_value.send_weekly_digest.return_value = sms_result
 
             result = send_weekly_escalation_summary()
 
         assert result["successful"] == 1
         assert "timestamp" in result
+
+    def test_member_only_digest_sends_without_escalation(self):
+        """WOF-10: the supervisor case — opted-in member, escalation disabled."""
+        mock_db = MagicMock()
+        supervisor = MagicMock()
+        supervisor.name = "Super Visor"
+        supervisor.phone = "+15554440001"
+        sms_result = {"successful": 1, "failed": 0, "total": 1}
+
+        with patch("src.scheduler.schedule_manager.get_db_session", make_db_session_patch(mock_db)), \
+             patch("src.scheduler.schedule_manager.SettingsService") as MockSettings, \
+             patch("src.scheduler.schedule_manager.ScheduleService") as MockSchedule, \
+             patch("src.scheduler.schedule_manager.TeamMemberRepository") as MockMembers, \
+             patch("src.scheduler.schedule_manager.SMSService") as MockSMS:
+            MockSettings.return_value.is_escalation_weekly_enabled.return_value = True
+            MockSettings.return_value.get_escalation_config.return_value = {"enabled": False}
+            MockSchedule.return_value.schedule_repo.get_by_date_range.return_value = []
+            MockMembers.return_value.get_digest_recipients.return_value = [supervisor]
+            MockSMS.return_value._compose_weekly_summary.return_value = "Weekly summary"
+            MockSMS.return_value.send_weekly_digest.return_value = sms_result
+
+            result = send_weekly_escalation_summary()
+
+        assert result["successful"] == 1
+        # The member reached the send call as a recipient
+        sent_recipients = MockSMS.return_value.send_weekly_digest.call_args.kwargs.get(
+            "recipients"
+        ) or MockSMS.return_value.send_weekly_digest.call_args.args[1]
+        assert any(r["phone"] == "+15554440001" for r in sent_recipients)
+
+
+# ---------------------------------------------------------------------------
+# collect_weekly_digest_recipients (WOF-10) — real services, real DB
+# ---------------------------------------------------------------------------
+
+class TestCollectWeeklyDigestRecipients:
+    """Recipient selection across member opt-in × escalation flag combinations."""
+
+    def _add_member(self, db_session, name, phone, optin, active=True):
+        from src.repositories.team_member_repository import TeamMemberRepository
+        return TeamMemberRepository(db_session).create({
+            "name": name,
+            "phone": phone,
+            "is_active": active,
+            "weekly_digest_optin": optin,
+        })
+
+    def _set_escalation(self, db_session, **kwargs):
+        from src.services.settings_service import SettingsService
+        SettingsService(db_session).set_escalation_config(**kwargs)
+
+    def test_opted_in_member_included_without_escalation(self, db_session):
+        self._add_member(db_session, "Super Visor", "+15554440001", optin=True)
+        self._add_member(db_session, "Quiet Quinn", "+15554440002", optin=False)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        phones = [r["phone"] for r in recipients]
+        assert phones == ["+15554440001"]
+        assert recipients[0]["label"] == "Team Member Digest"
+
+    def test_inactive_opted_in_member_excluded(self, db_session):
+        self._add_member(db_session, "Gone Gary", "+15554440003", optin=True, active=False)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        assert recipients == []
+
+    def test_escalation_contact_respects_individual_flag(self, db_session):
+        self._set_escalation(
+            db_session,
+            enabled=True,
+            primary_name="New Engineer",
+            primary_phone="+15554440004",
+            secondary_name="Old Hand",
+            secondary_phone="+15554440005",
+            primary_weekly_digest=False,
+            secondary_weekly_digest=True,
+        )
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        phones = [r["phone"] for r in recipients]
+        assert phones == ["+15554440005"]
+        assert recipients[0]["label"] == "Secondary Escalation Contact"
+
+    def test_escalation_disabled_excludes_contacts_but_not_members(self, db_session):
+        self._set_escalation(
+            db_session,
+            enabled=False,
+            primary_name="New Engineer",
+            primary_phone="+15554440004",
+        )
+        self._add_member(db_session, "Super Visor", "+15554440001", optin=True)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        phones = [r["phone"] for r in recipients]
+        assert phones == ["+15554440001"]
+
+    def test_dedupes_member_who_is_also_escalation_contact(self, db_session):
+        self._set_escalation(
+            db_session,
+            enabled=True,
+            primary_name="Super Visor",
+            primary_phone="+15554440001",
+        )
+        self._add_member(db_session, "Super Visor", "+15554440001", optin=True)
+
+        recipients = collect_weekly_digest_recipients(db_session)
+
+        assert len(recipients) == 1
+        # Escalation listing wins the label (collected first)
+        assert recipients[0]["label"] == "Primary Escalation Contact"
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +457,8 @@ class TestTriggerWeeklySummaryManually:
             result = trigger_weekly_summary_manually()
 
         assert result["status"] == "error"
-        assert "connection failed" in result["message"]
+        assert result["message"] == "Weekly summary job failed - see server logs"
+        assert "connection failed" not in result["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +509,8 @@ class TestTriggerOverrideCompletionManually:
             result = trigger_override_completion_manually()
 
         assert result["status"] == "error"
-        assert "override error" in result["message"]
+        assert result["message"] == "Override completion job failed - see server logs"
+        assert "override error" not in result["message"]
         assert result["completed_count"] == 0
 
 

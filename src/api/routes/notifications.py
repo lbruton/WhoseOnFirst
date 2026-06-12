@@ -265,6 +265,24 @@ def get_notification_message_from_twilio(
     # Initialize SMS service to access Twilio client
     sms_service = SMSService(db)
 
+    # In mock mode, twilio_client is None — return synthetic data instead of crashing
+    if sms_service.mock_mode:
+        return {
+            "body": "[MOCK] Message body unavailable in mock mode",
+            "status": "delivered",
+            "direction": "outbound-api",
+            "from": sms_service.from_phone,
+            "to": log.recipient_phone,
+            "date_sent": log.sent_at.isoformat() if log.sent_at else None,
+            "date_updated": log.sent_at.isoformat() if log.sent_at else None,
+            "sid": log.twilio_sid,
+            "num_segments": 1,
+            "price": None,
+            "price_unit": "USD",
+            "error_code": None,
+            "error_message": None,
+        }
+
     try:
         # Fetch message from Twilio API
         message = sms_service.twilio_client.messages(log.twilio_sid).fetch()

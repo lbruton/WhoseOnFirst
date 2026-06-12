@@ -4,7 +4,7 @@
 # Web Framework
 fastapi==0.115.0
 uvicorn[standard]==0.30.1
-python-multipart==0.0.26  # Required for UploadFile (file import endpoint)
+python-multipart==0.0.27  # Required for UploadFile (file import endpoint); 0.0.27 fixes DoS via unbounded multipart headers (Dependabot #8)
 
 # Database
 sqlalchemy==2.0.31
@@ -22,11 +22,12 @@ pydantic==2.8.2
 pydantic-settings==2.2.1
 
 # Utilities
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 httpx==0.25.2  # Async HTTP client
 
 # Security
 argon2-cffi==23.1.0  # Argon2id password hashing (OWASP 2025 recommended)
+cryptography>=46.0.7,<48  # Fernet + PBKDF2 for at-rest encryption of Twilio auth tokens (WHO-43); floor bumped past CVE-flagged ranges (CodeRabbit)
 
 # Logging
 python-json-logger==2.0.7

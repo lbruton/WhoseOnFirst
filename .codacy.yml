@@ -27,6 +27,9 @@ exclude_paths:
   # Installer bundle (deployment artifact)
   - "offline-installer/**"
 
+  # AI tooling config (Claude Code project.json, settings, hooks, hookify rules)
+  - ".claude/**"
+
   # Documentation (markdown files)
   - "docs/**/*.md"
   - "*.md"

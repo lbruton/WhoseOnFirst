@@ -50,6 +50,10 @@ from .sms_service import (
 from .settings_service import (
     SettingsService,
 )
+from .secrets_service import (
+    SecretsService,
+    SecretsConfigurationError,
+)
 
 # Export all services and exceptions
 __all__ = [
@@ -83,4 +87,7 @@ __all__ = [
     "SMSDeliveryError",
     # Settings Service
     "SettingsService",
+    # Secrets Service
+    "SecretsService",
+    "SecretsConfigurationError",
 ]

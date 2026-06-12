@@ -248,7 +248,40 @@
                                         </div>
                                     </div>
 
-                                    <h4 class="mt-4 mb-3">Step 4: Configure Environment Variables</h4>
+                                    <h4 class="mt-4 mb-3">Step 4: Configure Twilio via Admin UI (recommended)</h4>
+                                    <ol>
+                                        <li>Log in as an admin user.</li>
+                                        <li>Navigate to the <strong>Admin</strong> page.</li>
+                                        <li>Find the <strong>Twilio Configuration</strong> card.</li>
+                                        <li>Enter your Twilio Account SID, Auth Token, and Phone Number.</li>
+                                        <li>Click <strong>Save &amp; Test</strong>. The system validates the credentials with Twilio before saving.</li>
+                                    </ol>
+
+                                    <h4 class="mt-4 mb-3">Setting <code>SECRET_KEY</code> for encrypted storage</h4>
+                                    <p>
+                                        Twilio Auth Tokens stored via the Admin UI are encrypted at rest using the
+                                        <code>SECRET_KEY</code> environment variable. This variable is required for
+                                        the encrypted-at-rest pattern to work.
+                                    </p>
+                                    <p>Generate a new key with:</p>
+                                    <div class="code-block">
+<code>python -c "import secrets; print(secrets.token_urlsafe(32))"</code>
+                                    </div>
+                                    <p class="mt-3">
+                                        <strong>Important:</strong> If you change <code>SECRET_KEY</code> after saving
+                                        Twilio credentials, the system can no longer decrypt them and will fall back
+                                        to environment variables (if set). If no environment variables are configured,
+                                        SMS remains unconfigured and send attempts will fail unless
+                                        <code>SMS_MOCK_MODE=true</code> is explicitly set. Re-enter the credentials in
+                                        the Admin UI after rotating the key.
+                                    </p>
+
+                                    <h5 class="mt-4 mb-3">Alternative: Configure via environment variables</h5>
+                                    <p>
+                                        Useful for automated/Kubernetes deployments where setting environment variables
+                                        is preferable to manual UI entry. If both env vars and DB settings are present,
+                                        the database settings take precedence.
+                                    </p>
                                     <p>Create or edit the <code>.env</code> file in your WhoseOnFirst installation directory with the following configuration:</p>
 
                                     <div class="code-block">
@@ -291,7 +324,7 @@ SECRET_KEY=change-this-to-a-random-secret-key-in-production</code>
                                         </div>
                                     </div>
 
-                                    <h4 class="mt-4 mb-3">Step 5: Verify Configuration</h4>
+                                    <h5 class="mt-4 mb-3">Verify configuration (env-var path)</h5>
                                     <ol>
                                         <li>Save the <code>.env</code> file</li>
                                         <li>Restart the WhoseOnFirst server:
