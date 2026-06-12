@@ -3,7 +3,6 @@
     "allow": [
       "Bash(*)",
       "Skill(*)",
-      "mcp__*",
       "WebFetch",
       "WebSearch",
       "Read(//Volumes/DATA/GitHub/**)",
