@@ -15,7 +15,14 @@ Automated on-call rotation + SMS notification system for a 7-person technical te
 - Both `main` AND `dev` require PRs — direct push blocked by GitHub rules. Always worktree + PR targeting `dev`.
 - `dev → main` PRs only opened on explicit user "ship" or "release".
 - Before any code change: verify you are on `dev` (or worktree off `dev`), not `main`. If on `main`, stop and switch.
-- No version lock, no Codacy gate.
+- No version lock. main's ruleset gates on the Codacy check AND requires linear history (squash merge only) — verify with `gh api repos/{o}/{r}/rules/branches/main`, don't trust this file.
+
+### Shipping dev → main
+
+- dev and main accumulate conflicts (.gitignore, requirements, CLAUDE.md): build `release/vX.Y.Z` off dev, merge origin/main into it resolving dev-side, verify `git diff origin/dev release/vX.Y.Z` is EMPTY (proves shipped tree = tested tree), PR that to main.
+- Codacy "new issues" on release PRs are baseline artifacts (pre-existing dev code). Dismiss true false positives per-alert, then `codacy pull-request ... --reanalyze-and-wait`.
+- CodeRabbit re-reviews after every reply batch and re-sets CHANGES_REQUESTED — one reply+resolve pass, then dismiss its review and merge. Don't iterate.
+- Post-merge: tag `vX.Y.Z` on the squash commit + publish GitHub Release.
 
 ## DEV DB — DO NOT RESTORE FROM PROD
 
@@ -54,6 +61,7 @@ Prod runs on Portainer VM `192.168.1.81` stack #12 behind Cloudflare Zero Trust 
 - **Healthcheck noise** (~99% of output): `docker --context portainer logs whoseonfirst --since 24h 2>&1 | grep -v "GET /health"`.
 - **"Can't log in" + container healthy + zero POSTs in filtered logs** = Cloudflare Zero Trust session expired. Requests never reach FastAPI. Fix is user-side CF re-auth, NOT a code change.
 - **Production admin password is undocumented anywhere.** Dev container credentials live in auto-memory (`MEMORY.md`) — local dev only, never against production.
+- **Backups:** `db-backup` container on the VM snapshots prod every 6h to `/home/infrastructure/backups/whoseonfirst/` (7-day retention, on-VM only). The stvault export (`GET /api/v1/admin/export`) is NOT a backup — omits `users` + `notification_log` by design. Full backup: sqlite3 `.backup` API + `docker cp` off-host.
 
 ## Important Constraints
 
@@ -64,6 +72,7 @@ Prod runs on Portainer VM `192.168.1.81` stack #12 behind Cloudflare Zero Trust 
 5. DB: SQLAlchemy ORM exclusively, no raw SQL. Explicit transactions with rollback on errors.
 6. Logs: mask phone numbers (last 4 digits only). All credentials in `.env`, never committed.
 7. Scheduling: APScheduler (project standard), not system cron.
+8. Schedule regeneration cascade-deletes ALL override history (`ondelete=CASCADE`, WOF-24) — a blank schedule-overrides page after a rebuild is expected, not a regression.
 
 ## RPI Workflow
 
