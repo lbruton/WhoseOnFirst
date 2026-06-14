@@ -27,7 +27,7 @@ httpx==0.28.1  # Async HTTP client
 
 # Security
 argon2-cffi==25.1.0  # Argon2id password hashing (OWASP 2025 recommended)
-cryptography>=48.0.1,<49  # Fernet + PBKDF2 for at-rest encryption of Twilio auth tokens (WHO-43); floor bumped past CVE-flagged ranges (CodeRabbit)
+cryptography>=49.0.0,<50  # Fernet + PBKDF2 for at-rest encryption of Twilio auth tokens (WHO-43); floor bumped past CVE-flagged ranges (CodeRabbit)
 
 # Logging
 python-json-logger==4.1.0
