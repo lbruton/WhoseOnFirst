@@ -65,12 +65,9 @@ HANDOFF.md
 # Root-level instruction files (CLAUDE.md / AGENTS.md / GEMINI.md) ARE tracked —
 # they describe the project. .claude/ is tracked too (project.json, settings.json,
 # hooks/, hookify rules) so project config travels with the repo; only the
-# per-machine settings.local.json stays local. Other tool config dirs stay local.
+# per-machine settings.local.json stays local. Other AI tool config dirs (.codex/, .gemini/, .agents/, ...) are tracked too.
 .claude/settings.local.json
-.gemini/
-.codex/
-.kimi/
-.opencode/
+.claude/**/*.local.*
 
 # Git worktrees for isolated agent work — content dirs are transient, not project history
 .worktrees/
