@@ -153,6 +153,9 @@ tmp/
 temp/
 *.tmp
 
+# Scratch dirs from .claude/hooks/test_post_edit_lint.py (removed after each run)
+hooktest-scratch-*/
+
 # Documentation build
 docs/_build/
 site/
@@ -165,8 +168,8 @@ site/
 .twilio-cli/
 twilio_test_numbers.txt
 
-# Node modules (if using any frontend build tools)
-node_modules/
+# Node modules (no trailing slash so a symlinked node_modules in a worktree is ignored too)
+node_modules
 npm-debug.log
 yarn-error.log
 

@@ -1,17 +1,34 @@
 #!/usr/bin/env python3
-"""Post-edit lint hook for WhoseOnFirst — syntax checks for Python and JSON files."""
+"""Post-edit lint hook for WhoseOnFirst (DEVS-90) — Python and JSON checks.
+
+- .py: syntax check (in-process compile, no __pycache__), then flake8 from
+  the repo venv
+- .json: syntax validation
+
+Claude Code drops plain stdout from PostToolUse hooks, so findings are
+emitted as hookSpecificOutput.additionalContext JSON. Clean edits and files
+outside the repo print nothing. Always exits 0 (non-blocking).
+
+Also accepts Codex apply_patch payloads (patch text in tool_input.command)
+so the same script can back a .codex/hooks.json if one is added.
+"""
 
 import json
 import os
+import re
 import subprocess
 import sys
 
-PROJECT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# .claude/hooks/post-edit-lint.py -> repo root, so worktrees lint their own tree
+PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 TIMEOUT = 15
+MAX_LINES = 10
+
+PATCH_PATH_RE = re.compile(r"^\*\*\* (?:Add File|Update File|Move to): (.+)$")
 
 
-def run_cmd(cmd, limit_lines=10):
-    """Run a command, return (returncode, output limited to N lines)."""
+def run_cmd(cmd):
+    """Run a command from the repo root. Returns (returncode, output); never raises."""
     try:
         result = subprocess.run(
             cmd,
@@ -21,49 +38,108 @@ def run_cmd(cmd, limit_lines=10):
             cwd=PROJECT_DIR,
         )
         output = (result.stdout + result.stderr).strip()
-        if output:
-            lines = output.splitlines()[:limit_lines]
-            return result.returncode, "\n".join(lines)
-        return result.returncode, ""
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return result.returncode, "\n".join(output.splitlines()[:MAX_LINES])
+    except (subprocess.TimeoutExpired, OSError):
         return 0, ""
+
+
+def main_checkout():
+    """Root of the main checkout when running in a worktree, else PROJECT_DIR."""
+    rc, out = run_cmd(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if rc == 0 and out:
+        return os.path.dirname(out.strip())
+    return PROJECT_DIR
+
+
+def find_flake8():
+    """flake8 from the repo venv (worktrees fall back to the main checkout's venv)."""
+    for root in dict.fromkeys([PROJECT_DIR, main_checkout()]):
+        for venv in ("venv", ".venv"):
+            candidate = os.path.join(root, venv, "bin", "flake8")
+            if os.access(candidate, os.X_OK):
+                return candidate
+    return None
+
+
+def edited_files(tool_name, tool_input, cwd):
+    """Absolute paths of the files the tool call wrote."""
+    if tool_name in ("Edit", "Write", "MultiEdit"):
+        path = tool_input.get("file_path", "")
+        return [path] if path else []
+    if tool_name == "apply_patch":
+        lines = str(tool_input.get("command", "")).splitlines()
+        paths = []
+        for i, line in enumerate(lines):
+            m = PATCH_PATH_RE.match(line)
+            if not m:
+                continue
+            # An Update followed by Move to only exists at the destination
+            if line.startswith("*** Update File:") and i + 1 < len(lines) and lines[i + 1].startswith("*** Move to:"):
+                continue
+            paths.append(os.path.join(cwd, m.group(1).strip()))
+        return paths
+    return []
+
+
+def in_repo(path):
+    return os.path.realpath(path).startswith(PROJECT_DIR + os.sep)
+
+
+def lint_file(file_path):
+    """Return a list of findings for one file."""
+    rel = os.path.relpath(os.path.realpath(file_path), PROJECT_DIR)
+    findings = []
+
+    if file_path.endswith(".py"):
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                compile(f.read(), rel, "exec")
+        except SyntaxError as e:
+            findings.append(f"syntax error ({rel}): line {e.lineno}: {e.msg}")
+            return findings
+        except (OSError, ValueError):
+            return findings
+
+        flake8 = find_flake8()
+        if flake8:
+            rc, output = run_cmd([flake8, rel, "--max-line-length=120"])
+            if rc != 0 and output:
+                findings.append(f"flake8 ({rel}):\n{output}")
+
+    elif file_path.endswith(".json"):
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                json.load(f)
+        except json.JSONDecodeError as e:
+            findings.append(f"json validation ({rel}): {e}")
+        except (OSError, ValueError):
+            pass
+
+    return findings
 
 
 def main():
     try:
         data = json.loads(sys.stdin.read())
-    except (json.JSONDecodeError, EOFError):
+    except (json.JSONDecodeError, ValueError):
+        sys.exit(0)
+    if not isinstance(data, dict):
         sys.exit(0)
 
-    tool_name = data.get("tool_name", "")
-    if tool_name not in ("Edit", "Write"):
-        sys.exit(0)
+    tool_input = data.get("tool_input") or {}
+    cwd = data.get("cwd") or os.getcwd()
+    findings = []
+    for path in dict.fromkeys(edited_files(data.get("tool_name", ""), tool_input, cwd)):
+        if os.path.isfile(path) and in_repo(path):
+            findings.extend(lint_file(path))
 
-    tool_input = data.get("tool_input", {})
-    file_path = tool_input.get("file_path", "")
-    if not file_path or not os.path.isfile(file_path):
-        sys.exit(0)
-
-    if file_path.endswith(".py"):
-        # Syntax check
-        rc, output = run_cmd(["python3", "-m", "py_compile", file_path])
-        if rc != 0 and output:
-            print(f"[lint] py_compile {os.path.basename(file_path)}:")
-            print(f"[lint] {output}")
-
-        # Flake8 style check
-        rc, output = run_cmd(
-            ["python3", "-m", "flake8", file_path, "--max-line-length=120"]
-        )
-        if rc != 0 and output:
-            print(f"[lint] flake8 {os.path.basename(file_path)}:")
-            print(f"[lint] {output}")
-
-    elif file_path.endswith(".json"):
-        rc, output = run_cmd(["python3", "-m", "json.tool", file_path])
-        if rc != 0 and output:
-            print(f"[lint] json validation {os.path.basename(file_path)}:")
-            print(f"[lint] {output}")
+    if findings:
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PostToolUse",
+                "additionalContext": "[lint] " + "\n[lint] ".join(findings),
+            }
+        }))
 
     sys.exit(0)
 
