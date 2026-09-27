@@ -15,7 +15,7 @@ long-term research live in DocVault (`/Volumes/DATA/GitHub/DocVault/Projects/Who
 | [technical-stack.md](technical-stack.md) | Stack decisions and rationale: FastAPI, APScheduler, SQLAlchemy, Tabler.io/Bootstrap 5, Docker. | Adding a dependency or evaluating a stack change. |
 | [code-patterns.md](code-patterns.md) | Recurring implementation patterns: ORM/transaction conventions, phone masking, validation, error handling. | Writing any new `src/` code. |
 | [authentication.md](authentication.md) | Auth system design — Argon2id hashing (OWASP 2025 params), session model. | Touching auth, sessions, or password handling. |
-| [rpi-process.md](rpi-process.md) | The project's Research → Plan → Implement workflow (override of the global spec-workflow). | Starting any non-trivial feature or `/sketch`/`/spec`/`/gsd` work. |
+| [rpi-process.md](rpi-process.md) | The project's Research → Plan → Implement workflow (override of the global spec-workflow). | Starting any non-trivial feature or `/spec`/`/gsd` work. |
 
 ## Conventions
 
