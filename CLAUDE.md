@@ -76,7 +76,7 @@ Prod runs on Portainer VM `192.168.1.81` stack #12 behind Cloudflare Zero Trust 
 
 ## RPI Workflow
 
-Project-specific lightweight alternative to `/sketch`: **Research → Plan → Implement** (3 phases). Full process: `.context/rpi-process.md`.
+Project-specific lightweight alternative to `/spec`: **Research → Plan → Implement** (3 phases). Full process: `.context/rpi-process.md`.
 
 ## Issue Tracking
 
