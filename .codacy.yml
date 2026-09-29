@@ -8,6 +8,7 @@
 
 # Global exclusions (applies to all engines)
 exclude_paths:
+  - "DocVault/**"   # in-repo Obsidian vault (DEVS-78)
   # Test directories and files
   - "tests/**"
   - "**/*_test.py"

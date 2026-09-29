@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "detectedAt": "2026-06-09T16:40:26.801Z",
+  "testing": {
+    "framework": "pytest",
+    "command": "pytest",
+    "configFile": "pytest.ini",
+    "testDir": "tests/",
+    "hasBrowserbase": false
+  },
+  "versioning": {
+    "hasVersionLock": false,
+    "lockFile": null,
+    "packageVersion": null,
+    "userDeclinedSetup": false
+  },
+  "changelog": {
+    "hasChangelog": true,
+    "file": "CHANGELOG.md",
+    "format": "keepachangelog",
+    "docvaultFallback": false
+  }
+}
