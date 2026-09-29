@@ -214,3 +214,8 @@ Temporary Items
 # WHO-43: Codacy CLI scan artifacts
 .codacy/
 *.sarif
+
+# DocVault (Obsidian) per-machine state
+DocVault/.obsidian/workspace*.json
+DocVault/.obsidian/graph.json
+DocVault/.trash/
