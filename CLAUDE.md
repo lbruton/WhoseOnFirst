@@ -80,7 +80,7 @@ Project-specific lightweight alternative to `/spec`: **Research → Plan → Imp
 
 ## Issue Tracking
 
-Prefix `WOF`. Plane workspace `https://plane.lbruton.cc/lbruton/`. Create via `/issue` or `mcp__plane__create_issue`.
+Prefix `WOF`. Plane workspace `https://plane.lbruton.cc/lbruton/`. Create via `/issue` or `mcp__plane__workitem` (`action: "create"`).
 
 ## Hooks
 
